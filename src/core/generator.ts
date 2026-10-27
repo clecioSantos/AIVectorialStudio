@@ -11,12 +11,9 @@ return [o('Sombra','ellipse',121,364,276,58,dark,{opacity:.08+ambient*.35,stroke
 export const localProvider:GenerationProvider={id:'local-demo',label:'Gerador vetorial local (demonstração)',async generate({prompt,style,json}){if(json){const source=typeof json==='object'&&json!==null?json:{};const list=Array.isArray(source)?source:('shapes'in source?(source as {shapes:unknown}).shapes:[]);if(!Array.isArray(list))throw new Error('JSON deve conter uma lista "shapes".');return list.map((v,i)=>{if(!v||typeof v!=='object')throw new Error(`Forma ${i} inválida`);const e=v as Record<string,unknown>;const type=e.type;if(!['rect','ellipse','path','polygon'].includes(String(type)))throw new Error(`Tipo inválido na forma ${i}`);const base=shape(String(e.name||`Forma ${i+1}`),type as VectorShape['type'],Number(e.x||0),Number(e.y||0),Number(e.width||100),Number(e.height||100),String(e.fill||style.palette.primary[0]),style);return {...base,...e,id:uid(),type:base.type} as VectorShape;});}return demoShapes(prompt,style);}};
 export async function createArtwork(name:string,prompt:string,category:string,style:StudioStyle,json?:unknown):Promise<Artwork>{const shapes=await localProvider.generate({prompt,style,category,json});return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};}
 
-/** IA remota via servidor local. A chave nunca é enviada ao navegador. */
-export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',async generate({prompt,style,category}){
- const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,style,category})});
- const result:unknown=await response.json();
- if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na geração com IA');
- if(typeof result!=='object'||result===null||!('shapes'in result)||!Array.isArray(result.shapes))throw new Error('Resposta da IA inválida');
+function validateAiShapes(payload:unknown,style:StudioStyle):VectorShape[]{
+ const result=payload;
+ if(typeof result!=='object'||result===null||!('shapes'in result)||!Array.isArray(result.shapes))throw new Error('Resposta de IA inválida');
  const items=result.shapes as unknown[];
  if(items.length<1||items.length>60)throw new Error('Número de camadas inválido');
  const color=/^(#[0-9a-fA-F]{6}|none)$/;
@@ -37,9 +34,23 @@ export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG edit�
    fill,stroke,strokeWidth:number(s.strokeWidth,style.outlines.width,0,40),rotation:number(s.rotation,0,-360,360),opacity:number(s.opacity,1,0,1),
    ...(d?{d}:{}),...(points?{points}:{})};
  });
+}
+
+/** IA remota via servidor local. A chave nunca é enviada ao navegador. */
+export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',async generate({prompt,style,category}){
+ const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':'openai'},body:JSON.stringify({prompt,style,category})});
+ const result:unknown=await response.json();
+ if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na geração com IA');
+ return validateAiShapes(result,style);
 }};
-export type GeneratorId='local-demo'|'openai';
+export const geminiProvider:GenerationProvider={...aiProvider,id:'gemini',label:'Google Gemini (SVG editável)',async generate(input){
+ const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':'gemini'},body:JSON.stringify(input)});
+ const result:unknown=await response.json();
+ if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na API Gemini');
+ return validateAiShapes(result,input.style);
+}};
+export type GeneratorId='local-demo'|'openai'|'gemini';
 export async function createArtworkWithProvider(name:string,prompt:string,category:string,style:StudioStyle,provider:GeneratorId,json?:unknown):Promise<Artwork>{
- const shapes=await (provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json});
+ const shapes=await (provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json});
  return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};
 }
