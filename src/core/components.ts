@@ -15,7 +15,8 @@ export function makeComponent(shapes:VectorShape[],name:string,category='Outros'
 }
 export function instantiate(comp:VectorComponent,opts:InsertOptions):VectorShape[]{
  const b=bounds(comp.shapes),scale=Math.min(8,Math.max(.05,opts.scale));
- const center={x:opts.x,y:opts.y};
+ const socket=comp.sockets?.find(item=>item.name===opts.socket);
+ const center={x:opts.x-(socket?socket.x-b.x:0)*scale*(opts.flipX?-1:1),y:opts.y-(socket?socket.y-b.y:0)*scale};
  return comp.shapes.map(shape=>{
   const map=(x:number,y:number):[number,number]=>[center.x+(x-b.x)*(opts.flipX?-scale:scale),center.y+(y-b.y)*scale];
   const x1=map(shape.x,shape.y),x2=map(shape.x+shape.width,shape.y+shape.height);
@@ -45,6 +46,10 @@ export function syncLinkedShapes(shapes:VectorShape[],comp:VectorComponent):Vect
   // Linked updates keep the placement and local dimensions; update supported styling.
   return {...s,fill:master.fill,stroke:master.stroke,strokeWidth:master.strokeWidth,opacity:master.opacity,componentVersion:comp.version||1};
  });
+}
+export function addSocket(comp:VectorComponent,name:string,x:number,y:number):VectorComponent{
+ if(!name.trim()||!Number.isFinite(x)||!Number.isFinite(y))throw new Error('Socket inválido');
+ return {...comp,version:(comp.version||1)+1,sockets:[...(comp.sockets||[]).filter(p=>p.name!==name),{name:name.trim().slice(0,40),x,y}]};
 }
 export function componentPackage(components:VectorComponent[]){return {format:'aivs-components-v1',components:structuredClone(components)};}
 export function validateComponentPackage(value:unknown):VectorComponent[]{
