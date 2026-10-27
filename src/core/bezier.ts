@@ -32,3 +32,41 @@ export function moveBezierPoint(points:BezierPoint[],index:number,x:number,y:num
  }
  return next;
 }
+
+export function addBezierNode(points:BezierPoint[],segment:number):BezierPoint[]{
+ if(segment<0||segment*3+3>=points.length)return points;
+ const k=segment*3,a=points[k],b=points[k+1],c=points[k+2],d=points[k+3];
+ const mid=(u:BezierPoint,v:BezierPoint):BezierPoint=>({x:(u.x+v.x)/2,y:(u.y+v.y)/2,kind:'control'});
+ const ab=mid(a,b),bc=mid(b,c),cd=mid(c,d),abc=mid(ab,bc),bcd=mid(bc,cd),center=mid(abc,bcd);
+ return [...points.slice(0,k+1),ab,abc,{...center,kind:'anchor'},bcd,cd,...points.slice(k+3)];
+}
+export function removeBezierAnchor(points:BezierPoint[],index:number):BezierPoint[]{
+ if(index%3!==0||points.length<=4||index<0||index>=points.length)return points;
+ if(index===0)return [{...points[3],kind:'anchor'},...points.slice(4)];
+ if(index===points.length-1)return points.slice(0,index-2);
+ return [...points.slice(0,index-1),...points.slice(index+2)];
+}
+export function setBezierSmooth(points:BezierPoint[],index:number,smooth:boolean):BezierPoint[]{
+ const next=points.map(p=>({...p}));
+ if(index<=0||index>=next.length-1||index%3!==0)return next;
+ const anchor=next[index],incoming=next[index-1],outgoing=next[index+1];
+ if(smooth){const length=Math.hypot(outgoing.x-anchor.x,outgoing.y-anchor.y)||30;const dx=anchor.x-incoming.x,dy=anchor.y-incoming.y,norm=Math.hypot(dx,dy)||1;outgoing.x=anchor.x+dx/norm*length;outgoing.y=anchor.y+dy/norm*length;}
+ return next;
+}
+export function moveBezierPointLinked(points:BezierPoint[],index:number,x:number,y:number,mirror:boolean):BezierPoint[]{
+ const next=moveBezierPoint(points,index,x,y);
+ if(!mirror||next[index]?.kind!=='control')return next;
+ const anchorIndex=index%3===1?index-1:index+1;
+ const otherIndex=index%3===1?anchorIndex-1:anchorIndex+1;
+ const anchor=next[anchorIndex],other=next[otherIndex];
+ if(anchor&&other){const length=Math.hypot(other.x-anchor.x,other.y-anchor.y);const dx=anchor.x-x,dy=anchor.y-y,norm=Math.hypot(dx,dy)||1;other.x=anchor.x+dx/norm*length;other.y=anchor.y+dy/norm*length;}
+ return next;
+}
+export function closeBezier(points:BezierPoint[]):BezierPoint[]{
+ if(points.length<4)return points;
+ const first=points[0],last=points[points.length-1];
+ if(Math.hypot(last.x-first.x,last.y-first.y)<0.01)return points;
+ const a={x:last.x+(first.x-last.x)/3,y:last.y+(first.y-last.y)/3,kind:'control' as const};
+ const b={x:last.x+2*(first.x-last.x)/3,y:last.y+2*(first.y-last.y)/3,kind:'control' as const};
+ return [...points,a,b,{...first}];
+}
