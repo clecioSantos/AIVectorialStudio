@@ -1,7 +1,7 @@
 name: Vector Studio checks
 on:
   push:
-    branches: [main, feature/vector-editor-five-phases]
+    branches: [main, 'feature/**']
   pull_request:
     branches: [main]
 jobs:
