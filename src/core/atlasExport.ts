@@ -2,7 +2,7 @@ import type {Artwork} from './schema';
 import {serializeSvg,downloadBlob} from './export';
 import {planAtlas} from './assetBatch';
 
-async function renderSvg(art:Artwork,size:number):Promise<HTMLImageElement>{
+async function renderSvg(art:Artwork):Promise<HTMLImageElement>{
  const svg=serializeSvg(art,true);
  const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
  const img=new Image();
@@ -17,7 +17,7 @@ export async function exportAtlas(artworks:Artwork[],cellSize=256,columns=4,padd
  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas indisponível');
  ctx.clearRect(0,0,plan.width,plan.height);
  for(let i=0;i<artworks.length;i++){
-  const image=await renderSvg(artworks[i],cellSize),cell=plan.cells[i];
+  const image=await renderSvg(artworks[i]),cell=plan.cells[i];
   ctx.drawImage(image,cell.x,cell.y,cell.width,cell.height);
  }
  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Falha ao exportar atlas')),'image/png'));
