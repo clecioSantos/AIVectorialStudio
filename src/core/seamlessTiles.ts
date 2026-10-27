@@ -1,5 +1,6 @@
 import type {Artwork,VectorShape} from './schema';
-import {serializeSvg,downloadBlob} from './export';
+import {shapeMarkup,downloadBlob} from './export';
+import {textureDefs} from './textures';
 export type TileAxis='horizontal'|'vertical'|'both';
 export type TileOptions={size:number;axis:TileAxis;repeats:number};
 export type SeamIssue={shape:string;reason:string};
@@ -18,14 +19,23 @@ export function tileIssues(shapes:VectorShape[],size=512,axis:TileAxis='horizont
  }
  return warnings;
 }
+export function seamlessTileSvg(art:Artwork,size:number,axis:TileAxis='both'):string{
+ validateTile({size,axis,repeats:2});
+ const xs=axis==='vertical'?[0]:[-512,0,512],ys=axis==='horizontal'?[0]:[-512,0,512];
+ const tiled=art.shapes.map(shape=>xs.flatMap(dx=>ys.map(dy=>
+  '<g transform="translate('+dx+' '+dy+')">'+shapeMarkup(shape)+'</g>'
+ ))).flat().join('');
+ return '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'" viewBox="0 0 512 512" overflow="hidden">'+
+ textureDefs(art.shapes.filter(sh=>sh.texture).map(sh=>({texture:sh.texture!,fill:sh.fill})))+
+ tiled+'</svg>';
+}
 export function tilePreviewSvg(art:Artwork,options:TileOptions):string{
  validateTile(options);
  const {size,axis,repeats}=options;
  const cols=axis==='vertical'?1:repeats,rows=axis==='horizontal'?1:repeats;
- // Each instance carries its own clip to prevent overflow from neighboring tiles.
+ const body=seamlessTileSvg(art,size,axis).replace(/^<svg[^>]*>/,'').replace(/<\\/svg>$/,'');
  const parts=Array.from({length:cols*rows},(_,i)=>{
   const x=i%cols*size,y=Math.floor(i/cols)*size;
-  const body=serializeSvg(art,true).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'');
   return '<svg x="'+x+'" y="'+y+'" width="'+size+'" height="'+size+'" viewBox="0 0 512 512" overflow="hidden">'+body+'</svg>';
  });
  return '<svg xmlns="http://www.w3.org/2000/svg" width="'+cols*size+'" height="'+rows*size+'" viewBox="0 0 '+cols*size+' '+rows*size+'">'+parts.join('')+'</svg>';
