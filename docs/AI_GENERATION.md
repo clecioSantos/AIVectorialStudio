@@ -35,3 +35,10 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 Reinicie `npm run dev` e selecione **Google Gemini (SVG por IA)** na interface. O modelo `gemini-3.5-flash-lite` é a escolha padrão econômica para JSON estruturado. Para prompts vetoriais mais difíceis, experimente `gemini-3.8-flash` (maior custo). Você pode obter uma chave em https://aistudio.google.com/api-keys . Modelos disponíveis, limites e preços variam conforme a conta e o momento. Nunca publique `.env.local`.
 
 **Nota:** a integração não gera imagens raster nativas do Gemini: solicita JSON de formas SVG editáveis. Um modelo pode devolver geometria limitada e não obedecer perfeitamente ao estilo.
+
+
+## Editar arte existente com IA
+
+Selecione Gemini ou OpenAI, abra uma ilustração na aba **Criar arte** e use o painel **Editar com IA**. Você pode marcar **Editar só a camada selecionada**, escrever a alteração desejada e clicar em **Gerar prévia da edição**. O aplicativo mostra Antes e Depois e só aplica as mudanças após clicar **Aceitar**. **Cancelar** não altera a obra; **Desfazer última edição IA** restaura o estado anterior.
+
+A IA recebe as camadas atuais, o style.json resolvido e a instrução. A resposta contém somente patches por ID de camada, sem recriar o SVG completo. IDs desconhecidos e campos proibidos são rejeitados. O recurso ainda não adiciona nem remove camadas via IA; a edição de caminhos depende da capacidade do modelo e precisa de revisão visual. Cada edição consome tokens da API selecionada. A versão inicial mantém uma única etapa de desfazer na sessão; não constitui histórico persistente de revisões.
