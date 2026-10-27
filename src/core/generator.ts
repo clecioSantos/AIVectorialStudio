@@ -54,3 +54,38 @@ export async function createArtworkWithProvider(name:string,prompt:string,catego
  const shapes=await (provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json});
  return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};
 }
+
+export type EditChange={id:string;patch:Partial<VectorShape>};
+export type EditProposal={artworkId:string;changes:EditChange[];summary:string};
+export async function proposeArtworkEdit(art:Artwork,instruction:string,style:StudioStyle,provider:'gemini'|'openai',selectedId?:string|null):Promise<EditProposal>{
+ if(!instruction.trim())throw new Error('Informe a alteração desejada');
+ const response=await fetch('/api/edit',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':provider},body:JSON.stringify({instruction,style,shapes:art.shapes,selectedId:selectedId||null})});
+ const payload:unknown=await response.json();
+ if(!response.ok)throw new Error(typeof payload==='object'&&payload!==null&&'error' in payload?String(payload.error):'Falha ao editar arte');
+ if(!payload||typeof payload!=='object'||!('changes' in payload)||!Array.isArray(payload.changes))throw new Error('Resposta de edição inválida');
+ const allowed=new Set(selectedId?[selectedId]:art.shapes.map(s=>s.id));
+ const numeric=new Set(['x','y','width','height','rotation','strokeWidth','opacity','radius']);
+ const colors=new Set(['fill','stroke']);
+ const textFields=new Set(['name','d','points']);
+ const changes:EditChange[]=[];
+ for(const item of payload.changes){
+  if(!item||typeof item!=='object'||typeof item.id!=='string'||!allowed.has(item.id)||typeof item.patch!=='object'||!item.patch)throw new Error('IA tentou alterar camada não autorizada');
+  const patch:Record<string,unknown>={};
+  for(const [key,value] of Object.entries(item.patch as Record<string,unknown>)){
+   if(numeric.has(key)){if(typeof value!=='number'||!Number.isFinite(value)||Math.abs(value)>3000)throw new Error('Valor numérico inválido');patch[key]=value;}
+   else if(colors.has(key)){if(typeof value!=='string'||!/^#[0-9a-fA-F]{6}$|^none$/.test(value))throw new Error('Cor inválida');patch[key]=value;}
+   else if(textFields.has(key)){if(typeof value!=='string'||value.length>8000)throw new Error('Texto de forma inválido');patch[key]=value;}
+   else if(key==='strokeLineCap'&&['butt','round','square'].includes(String(value)))patch[key]=value;
+   else if(key==='strokeLineJoin'&&['bevel','round','miter'].includes(String(value)))patch[key]=value;
+   else throw new Error('Campo de edição não permitido: '+key);
+  }
+  changes.push({id:item.id,patch:patch as Partial<VectorShape>});
+ }
+ if(!changes.length)throw new Error('A IA não sugeriu alterações');
+ return {artworkId:art.id,changes,summary:typeof payload.summary==='string'?payload.summary.slice(0,400):'Alterações propostas'};
+}
+export function applyEditProposal(art:Artwork,proposal:EditProposal):Artwork{
+ if(art.id!==proposal.artworkId)throw new Error('Prévia pertence a outra ilustração');
+ const changes=new Map(proposal.changes.map(x=>[x.id,x.patch]));
+ return {...art,modifiedAt:now(),shapes:art.shapes.map(s=>changes.has(s.id)?{...s,...changes.get(s.id)}:s)};
+}
