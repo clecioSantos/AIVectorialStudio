@@ -17,6 +17,17 @@ describe('rarity ornaments',()=>{
   expect(legendary.every(s=>s.x>=shape.x&&s.x+s.width<=shape.x+shape.width&&s.y>=shape.y&&s.y+s.height<=shape.y+shape.height)).toBe(true);
   expect(shape.fill).toBe('#888888');
  });
+ it('targets named sword components without changing their geometry',()=>{
+  const sword=[{...shape,name:'Lâmina',id:'blade'},{...shape,id:'guard',name:'Guarda',x:40,y:310,width:80,height:45},{...shape,id:'pommel',name:'Pomo',x:70,y:390,width:40,height:40}];
+  const ornaments=rarityOrnaments(sword,'Lendário',defaultMaterials[2],'weapons');
+  expect(ornaments.map(x=>x.name)).toEqual(['Ornamento Lendário · Lâmina','Ornamento Lendário · Guarda','Ornamento Lendário · Pomo']);
+  expect(sword[0].fill).toBe('#888888');
+ });
+ it('targets shield center emblem when available',()=>{
+  const shield=[{...shape,name:'Escudo',id:'shield'},{...shape,name:'Emblema',id:'emblem',x:60,y:110,width:60,height:60}];
+  const ornaments=rarityOrnaments(shield,'Épico',defaultMaterials[2],'weapons');
+  expect(ornaments[1].name).toContain('Emblema');
+ });
  it('skips tiny or transparent components',()=>{
   expect(rarityOrnaments([{...shape,width:10,height:10}],'Lendário',defaultMaterials[0])).toEqual([]);
  });
