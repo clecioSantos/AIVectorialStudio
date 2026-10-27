@@ -16,7 +16,7 @@ export const styleSchema = z.object({
 }).strict();
 export type StudioStyle = z.infer<typeof styleSchema>;
 export type StylePatch = Record<string,unknown>;
-export type VectorShape = {id:string;type:'rect'|'ellipse'|'path'|'polygon';name:string; x:number;y:number;width:number;height:number;fill:string;stroke:string;strokeWidth:number;rotation:number;opacity:number;d?:string;points?:string;material?:string;radius?:number;strokeLineCap?:'round'|'butt'|'square';strokeLineJoin?:'round'|'miter'|'bevel'};
+export type VectorShape = {id:string;type:'rect'|'ellipse'|'path'|'polygon';name:string; x:number;y:number;width:number;height:number;fill:string;stroke:string;strokeWidth:number;rotation:number;opacity:number;d?:string;points?:string;material?:string;groupId?:string;radius?:number;strokeLineCap?:'round'|'butt'|'square';strokeLineJoin?:'round'|'miter'|'bevel'};
 export type Artwork = {id:string;name:string;prompt:string;category:string;createdAt:string;modifiedAt:string;size:number;shapes:VectorShape[];stylePatch:StylePatch};
 export type StyleRevision = {id:string;createdAt:string;style:StudioStyle};
 export type ArtworkRevision={id:string;createdAt:string;label:string;artwork:Artwork};
