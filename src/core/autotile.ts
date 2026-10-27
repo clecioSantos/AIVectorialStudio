@@ -28,6 +28,11 @@ export function parseTerrainGrid(input:string):TerrainGrid{
  if(width===0||width>20||lines.some(s=>s.length!==width||/[^.#01]/.test(s)))throw new Error('Use grade retangular com # e .');
  return lines.map(line=>[...line].map(c=>c==='#'||c==='1'));
 }
+export function tileEdgeOverlay(mask:number):string{
+ const top=!(mask&1),right=!(mask&2),bottom=!(mask&4),left=!(mask&8);
+ const segments=[top?'<path d="M0 0H512"/>':'',right?'<path d="M512 0V512"/>':'',bottom?'<path d="M0 512H512"/>':'',left?'<path d="M0 0V512"/>':''].join('');
+ return '<g fill="none" stroke="#F1D4A5" stroke-width="6" opacity=".7">'+segments+'</g>';
+}
 export function autotilePreviewSvg(art:Artwork,grid:TerrainGrid,size:number):string{
  if(!grid.length||!grid[0]?.length)throw new Error('Grade vazia');
  if(!Number.isInteger(size)||size<16||size>512)throw new Error('Tamanho inválido');
@@ -38,7 +43,7 @@ export function autotilePreviewSvg(art:Artwork,grid:TerrainGrid,size:number):str
  const items=grid.flatMap((row,y)=>row.map((active,x)=>{
   if(!active)return '';
   const mask=neighbors(grid,x,y),role=tileRole(mask);
-  return '<svg x="'+x*size+'" y="'+y*size+'" width="'+size+'" height="'+size+'" viewBox="0 0 512 512" data-mask="'+mask+'" data-role="'+role+'">'+body+'</svg>';
+  return '<svg x="'+x*size+'" y="'+y*size+'" width="'+size+'" height="'+size+'" viewBox="0 0 512 512" data-mask="'+mask+'" data-role="'+role+'">'+body+tileEdgeOverlay(mask)+'</svg>';
  })).join('');
  return '<svg xmlns="http://www.w3.org/2000/svg" width="'+w*size+'" height="'+h*size+'" viewBox="0 0 '+w*size+' '+h*size+'">'+items+'</svg>';
 }
