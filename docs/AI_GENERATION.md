@@ -19,3 +19,19 @@ O endpoint é fornecido pelo servidor de desenvolvimento Vite e **não é um bac
 ## Próximos passos
 
 Adicionar testes automatizados de contrato, melhorar o editor de caminhos e suportar mais provedores e validação avançada de SVG.
+
+
+## Google Gemini
+
+O motor **Google Gemini** usa a mesma rota local do Vite, enviando a solicitação pela API Gemini `generateContent` com saída `application/json`. A chave fica somente no servidor.
+
+Adicione ao `.env.local`:
+
+```env
+GEMINI_API_KEY=sua_chave_aqui
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Reinicie `npm run dev` e selecione **Google Gemini (SVG por IA)** na interface. O modelo `gemini-3.5-flash-lite` é a escolha padrão econômica para JSON estruturado. Para prompts vetoriais mais difíceis, experimente `gemini-3.8-flash` (maior custo). Você pode obter uma chave em https://aistudio.google.com/api-keys . Modelos disponíveis, limites e preços variam conforme a conta e o momento. Nunca publique `.env.local`.
+
+**Nota:** a integração não gera imagens raster nativas do Gemini: solicita JSON de formas SVG editáveis. Um modelo pode devolver geometria limitada e não obedecer perfeitamente ao estilo.
