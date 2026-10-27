@@ -42,3 +42,8 @@ Reinicie `npm run dev` e selecione **Google Gemini (SVG por IA)** na interface. 
 Selecione Gemini ou OpenAI, abra uma ilustração na aba **Criar arte** e use o painel **Editar com IA**. Você pode marcar **Editar só a camada selecionada**, escrever a alteração desejada e clicar em **Gerar prévia da edição**. O aplicativo mostra Antes e Depois e só aplica as mudanças após clicar **Aceitar**. **Cancelar** não altera a obra; **Desfazer última edição IA** restaura o estado anterior.
 
 A IA recebe as camadas atuais, o style.json resolvido e a instrução. A resposta contém somente patches por ID de camada, sem recriar o SVG completo. IDs desconhecidos e campos proibidos são rejeitados. O recurso ainda não adiciona nem remove camadas via IA; a edição de caminhos depende da capacidade do modelo e precisa de revisão visual. Cada edição consome tokens da API selecionada. A versão inicial mantém uma única etapa de desfazer na sessão; não constitui histórico persistente de revisões.
+
+
+## Edição visual Bézier (experimental)
+
+No painel **Editor vetorial**, selecione uma camada do tipo `path`, clique em **Editar nós no canvas** e arraste os pontos de ancoragem azuis ou as alças de controle amarelas. Mover uma âncora desloca suas alças adjacentes, preservando o desenho local. O editor visual inicial suporta exclusivamente caminhos SVG com `M` inicial e segmentos `C` absolutos, sem rotação; outros caminhos continuam editáveis por texto no painel de propriedades. As curvas mantêm o formato SVG vetorial. O recurso não inclui ainda operações booleanas, espelhamento de alças nem edição visual de comandos Q/A/L.
