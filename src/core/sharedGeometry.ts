@@ -34,5 +34,5 @@ export function createSharedGeometryVariant(base:Artwork,style:StudioStyle,entry
   strokeWidth:shape.strokeWidth,
   opacity:shape.opacity
  }));
- return {...structuredClone(base),id:uid(),name:entry.name,category:entry.category,prompt:entry.prompt,createdAt:now(),modifiedAt:now(),shapes:[...shapes,...rarityOrnaments(shapes,entry.rarity,material)]};
+ return {...structuredClone(base),id:uid(),name:entry.name,category:entry.category,prompt:entry.prompt,createdAt:now(),modifiedAt:now(),shapes:[...shapes,...rarityOrnaments(shapes,entry.rarity,material,entry.category)]};
 }
