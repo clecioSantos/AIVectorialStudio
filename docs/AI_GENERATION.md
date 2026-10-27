@@ -47,3 +47,10 @@ A IA recebe as camadas atuais, o style.json resolvido e a instrução. A respost
 ## Edição visual Bézier (experimental)
 
 No painel **Editor vetorial**, selecione uma camada do tipo `path`, clique em **Editar nós no canvas** e arraste os pontos de ancoragem azuis ou as alças de controle amarelas. Mover uma âncora desloca suas alças adjacentes, preservando o desenho local. O editor visual inicial suporta exclusivamente caminhos SVG com `M` inicial e segmentos `C` absolutos, sem rotação; outros caminhos continuam editáveis por texto no painel de propriedades. As curvas mantêm o formato SVG vetorial. O recurso não inclui ainda operações booleanas, espelhamento de alças nem edição visual de comandos Q/A/L.
+
+
+## Editor Bézier V2.1 / V2.2 (experimental)
+
+Selecione um path com comandos `M` e `C` absolutos (sem rotação) e ative **Editar nós no canvas**. Você pode adicionar nó em um segmento, remover a âncora selecionada, suavizar uma âncora interior ou fechar a curva ligando o último ponto ao primeiro. Arraste âncoras azuis e alças amarelas. Com **Espelhar alças opostas**, o movimento de uma alça mantém o alinhamento da alça complementar. **Shift + clique** permite selecionar vários nós para arrastar juntos. A opção **Encaixar nós à grade** arredonda as posições a uma grade de 8 px; **Desfazer/Refazer** mantém até 40 alterações da edição de nós na sessão atual.
+
+Limitações: caminhos com comandos `L`, `Q`, `A`, relativos ou com `Z` explícito ainda não são editáveis visualmente; fechamento adiciona segmento cúbico ligando o ponto final ao inicial. O editor não converte automaticamente paths importados, nem suporta curvas rotacionadas. Este recurso não passou por testes de navegador com dependências instaladas; valide o build com `npm install && npm run build`.
