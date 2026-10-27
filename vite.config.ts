@@ -21,7 +21,7 @@ function aiApi(): Plugin {
           const allowed=new Set(input.shapes.map((sh:{id:string})=>sh.id));
           if(input.selectedId&&!allowed.has(input.selectedId))throw new Error('Camada selecionada inválida');
           const system='Você edita ilustrações SVG estruturadas existentes. Retorne APENAS objeto JSON com "summary" (breve) e "changes" (lista de objetos {id,patch}). Cada id deve existir nas formas recebidas. Use patch somente com os campos alterados: name,x,y,width,height,rotation,opacity,fill,stroke,strokeWidth,radius,d,points,strokeLineCap,strokeLineJoin. Preserve forma, posição e estilo quando não pedidos. NÃO crie nem remova camadas. NÃO altere id ou type. Se selectedId existir, modifique EXCLUSIVAMENTE essa camada. Todas as cores em #RRGGBB ou none. Respeite integralmente o style.json.';
-          const request='Pedido: '+input.instruction+'\nCamada selecionada: '+(input.selectedId||'nenhuma')+'\nEstilo: '+JSON.stringify(input.style).slice(0,15000)+'\nCamadas atuais: '+JSON.stringify(input.shapes).slice(0,60000);
+          const request='Permite adicionar formas em additions e remover IDs em removals; use changes para patches. Retorne arrays vazios quando não houver operação. Máximo 25 adições, 25 remoções e 60 formas no total. Se selectedId informado, não inclua additions/removals. Pedido: '+input.instruction+'\nCamada selecionada: '+(input.selectedId||'nenhuma')+'\nEstilo: '+JSON.stringify(input.style).slice(0,15000)+'\nCamadas atuais: '+JSON.stringify(input.shapes).slice(0,60000);
           let output:string;
           if(provider==='gemini'){
             const model=process.env.GEMINI_MODEL||'gemini-3.5-flash-lite';
@@ -45,7 +45,7 @@ function aiApi(): Plugin {
           const edits=JSON.parse(output);
           if(!Array.isArray(edits.changes)||edits.changes.length>60)throw new Error('Lista de alterações inválida');
           for(const change of edits.changes)if(!change||!allowed.has(change.id)||(input.selectedId&&change.id!==input.selectedId)||!change.patch||typeof change.patch!=='object'||Array.isArray(change.patch))throw new Error('Edição tentou modificar camadas não autorizadas');
-          res.end(JSON.stringify({changes:edits.changes,summary:String(edits.summary||'Alteração proposta').slice(0,400)}));
+          res.end(JSON.stringify({changes:edits.changes,additions:Array.isArray(edits.additions)?edits.additions:[],removals:Array.isArray(edits.removals)?edits.removals:[],summary:String(edits.summary||'Alteração proposta').slice(0,400)}));
         }catch(e){res.statusCode=400;res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)}));}
       });
       server.middlewares.use('/api/generate', async (req, res) => {
