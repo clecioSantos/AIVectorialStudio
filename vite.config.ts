@@ -9,8 +9,11 @@ function aiApi(): Plugin {
       server.middlewares.use('/api/generate', async (req, res) => {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({error:'Método não permitido'})); return; }
-        const key = process.env.OPENAI_API_KEY;
-        if (!key) { res.statusCode = 503; res.end(JSON.stringify({error:'Configure OPENAI_API_KEY no arquivo .env.local e reinicie o Vite.'})); return; }
+        const requestedProvider = req.headers['x-vector-provider'];
+        const provider = requestedProvider === 'gemini' ? 'gemini' : requestedProvider === 'openai' || !requestedProvider ? 'openai' : null;
+        if (!provider) { res.statusCode = 400; res.end(JSON.stringify({error:'Provedor inválido'})); return; }
+        const key = provider === 'gemini' ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY;
+        if (!key) { res.statusCode = 503; res.end(JSON.stringify({error:`Configure ${provider === 'gemini' ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY'} no arquivo .env.local e reinicie o Vite.`})); return; }
         try {
           let body = '';
           for await (const chunk of req) { body += chunk.toString(); if (body.length > 100000) throw new Error('Requisição grande demais'); }
@@ -25,15 +28,34 @@ function aiApi(): Plugin {
             'O estilo define como desenhar, e o prompt define o objeto. Não acrescente objetos não solicitados.',
             'Style JSON: ' + JSON.stringify(input.style).slice(0,18000)
           ].join('\n');
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method:'POST', headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
-            body: JSON.stringify({model:process.env.OPENAI_MODEL || 'gpt-4.1-mini', temperature:0.45, response_format:{type:'json_object'}, messages:[{role:'system',content:system},{role:'user',content:'Categoria: '+String(input.category||'custom')+'\nIlustração: '+input.prompt}]})
-          });
-          const result = await response.json();
-          if (!response.ok) { res.statusCode = 502; res.end(JSON.stringify({error:result.error?.message || 'Falha no provedor de IA'})); return; }
-          const content = result.choices?.[0]?.message?.content;
-          if (typeof content !== 'string') throw new Error('Resposta vazia da IA');
-          const shapes = JSON.parse(content).shapes;
+          let shapes:unknown;
+          if (provider === 'gemini') {
+            const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+            const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+              method:'POST',
+              headers:{'x-goog-api-key':key,'Content-Type':'application/json'},
+              body:JSON.stringify({
+                systemInstruction:{parts:[{text:system}]},
+                contents:[{role:'user',parts:[{text:'Categoria: '+String(input.category||'custom')+'\\nIlustração: '+input.prompt}]}],
+                generationConfig:{responseMimeType:'application/json',temperature:0.45,maxOutputTokens:8192}
+              })
+            });
+            const result = await response.json();
+            if (!response.ok) { res.statusCode = 502; res.end(JSON.stringify({error:result.error?.message || 'Falha na API Gemini'})); return; }
+            const content = result.candidates?.[0]?.content?.parts?.map((p:{text?:string})=>p.text||'').join('');
+            if (!content) throw new Error('Gemini não retornou formas vetoriais; tente um prompt mais simples');
+            shapes = JSON.parse(content).shapes;
+          } else {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method:'POST', headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+              body: JSON.stringify({model:process.env.OPENAI_MODEL || 'gpt-4.1-mini', temperature:0.45, response_format:{type:'json_object'}, messages:[{role:'system',content:system},{role:'user',content:'Categoria: '+String(input.category||'custom')+'\\nIlustração: '+input.prompt}]})
+            });
+            const result = await response.json();
+            if (!response.ok) { res.statusCode = 502; res.end(JSON.stringify({error:result.error?.message || 'Falha no provedor OpenAI'})); return; }
+            const content = result.choices?.[0]?.message?.content;
+            if (typeof content !== 'string') throw new Error('Resposta vazia da OpenAI');
+            shapes = JSON.parse(content).shapes;
+          }
           if (!Array.isArray(shapes) || shapes.length < 1 || shapes.length > 60) throw new Error('IA retornou lista de formas inválida');
           res.end(JSON.stringify({shapes}));
         } catch(e) { res.statusCode = 400; res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)})); }
@@ -43,8 +65,10 @@ function aiApi(): Plugin {
 }
 
 export default defineConfig(({mode}) => {
-  const env=loadEnv(mode,process.cwd(),'OPENAI_');
+  const env=loadEnv(mode,process.cwd(),['OPENAI_','GEMINI_']);
   process.env.OPENAI_API_KEY=process.env.OPENAI_API_KEY || env.OPENAI_API_KEY;
   process.env.OPENAI_MODEL=process.env.OPENAI_MODEL || env.OPENAI_MODEL;
+  process.env.GEMINI_API_KEY=process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
+  process.env.GEMINI_MODEL=process.env.GEMINI_MODEL || env.GEMINI_MODEL;
   return { plugins:[react(),aiApi()], server:{port:5180,strictPort:true} };
 });
