@@ -1,11 +1,14 @@
+import svgpath from 'svgpath';
 /** Normalize SVG path geometry to absolute cubic commands for node editing.
- * Arcs (A/a) and paths with multiple subpaths are deliberately rejected;
+ * Arcs (A/a) are converted to cubic commands; multiple subpaths are rejected;
  * converting them inaccurately would corrupt the original illustration.
  */
 export function toEditableCubicPath(input:string):string|null {
   const token=/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?/g;
-  const tokens=input.match(token)||[];
-  if(!tokens.length || input.replace(token,'').replace(/[\s,]/g,'')!=='')return null;
+  let expanded:string;
+  try { expanded=svgpath(input).unarc().unshort().abs().toString(); } catch { return null; }
+  const tokens=expanded.match(token)||[];
+  if(!tokens.length || expanded.replace(token,'').replace(/[\s,]/g,'')!=='')return null;
   const count:Record<string,number>={M:2,L:2,H:1,V:1,C:6,S:4,Q:4,T:2,Z:0};
   let i=0,cmd='',x=0,y=0,sx=0,sy=0,prev='',cx=0,cy=0,qx=0,qy=0,segments=0;
   const result:string[]=[];
