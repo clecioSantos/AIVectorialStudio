@@ -72,3 +72,10 @@ export function validateComponentPackage(value:unknown):VectorComponent[]{
 export function componentHints(project:StudioProject):string{
  return project.components.slice(0,12).map(c=>c.name+' ['+(c.category||'Outros')+']').join('; ').slice(0,600);
 }
+
+/** Reuses authored components instead of requesting fresh decorative geometry from the AI. */
+export function recommendComponents(components:VectorComponent[],description:string,limit=4):VectorComponent[]{
+ const words=new Set(description.toLocaleLowerCase('pt-BR').split(/[^\p{L}\p{N}]+/u).filter(x=>x.length>3));
+ return components.map(c=>({c,score:[c.name,c.category||'',...(c.tags||[])].join(' ').toLocaleLowerCase('pt-BR').split(/[^\p{L}\p{N}]+/u).filter(x=>words.has(x)).length}))
+  .filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,limit).map(x=>x.c);
+}
