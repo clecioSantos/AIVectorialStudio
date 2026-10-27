@@ -12,10 +12,11 @@ describe('shared geometry collection',()=>{
   const [entry]=planCollection({...templatePresets[0],materials:['Ouro'],rarities:['Raro']});
   const variant=createSharedGeometryVariant(art,defaultStyle,entry);
   expect(variant.id).not.toBe(art.id);
-  expect(variant.shapes.map(s=>[s.type,s.x,s.y,s.width,s.height,s.points])).toEqual(art.shapes.map(s=>[s.type,s.x,s.y,s.width,s.height,s.points]));
+  expect(variant.shapes.slice(0,art.shapes.length).map(s=>[s.type,s.x,s.y,s.width,s.height,s.points])).toEqual(art.shapes.map(s=>[s.type,s.x,s.y,s.width,s.height,s.points]));
   expect(variant.shapes[0].fill).not.toBe(art.shapes[0].fill);
   expect(variant.shapes[1].fill).toBe('#815733');
   expect(variant.shapes[0].id).not.toBe(art.shapes[0].id);
+  expect(variant.shapes.length).toBeGreaterThan(art.shapes.length);
  });
  it('changes rarity palette but not geometry',()=>{
   const entries=planCollection({...templatePresets[0],materials:['Ferro'],rarities:['Comum','Lendário']});

@@ -1,6 +1,7 @@
 import type {Artwork,StudioStyle,VectorShape} from './schema';
 import {uid,now} from './schema';
 import {defaultMaterials} from './assetBatch';
+import {rarityOrnaments} from './rarityOrnaments';
 import type {CollectionEntry,Rarity} from './collectionTemplates';
 type Role='base'|'highlight'|'shadow'|'other';
 const rarityStrength:Record<Rarity,number>={'Comum':0,'Incomum':0.12,'Raro':0.25,'Épico':0.38,'Lendário':0.5};
@@ -33,5 +34,5 @@ export function createSharedGeometryVariant(base:Artwork,style:StudioStyle,entry
   strokeWidth:shape.strokeWidth,
   opacity:shape.opacity
  }));
- return {...structuredClone(base),id:uid(),name:entry.name,category:entry.category,prompt:entry.prompt,createdAt:now(),modifiedAt:now(),shapes};
+ return {...structuredClone(base),id:uid(),name:entry.name,category:entry.category,prompt:entry.prompt,createdAt:now(),modifiedAt:now(),shapes:[...shapes,...rarityOrnaments(shapes,entry.rarity,material)]};
 }
