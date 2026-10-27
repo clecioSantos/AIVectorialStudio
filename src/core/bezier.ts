@@ -50,6 +50,7 @@ export function setBezierSmooth(points:BezierPoint[],index:number,smooth:boolean
  const next=points.map(p=>({...p}));
  if(index<=0||index>=next.length-1||index%3!==0)return next;
  const anchor=next[index],incoming=next[index-1],outgoing=next[index+1];
+ if(!smooth){outgoing.x=anchor.x;outgoing.y=anchor.y;return next;}
  if(smooth){const length=Math.hypot(outgoing.x-anchor.x,outgoing.y-anchor.y)||30;const dx=anchor.x-incoming.x,dy=anchor.y-incoming.y,norm=Math.hypot(dx,dy)||1;outgoing.x=anchor.x+dx/norm*length;outgoing.y=anchor.y+dy/norm*length;}
  return next;
 }
