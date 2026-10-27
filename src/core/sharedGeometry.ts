@@ -22,7 +22,7 @@ export function createSharedGeometryVariant(base:Artwork,style:StudioStyle,entry
  const remap=(color:string)=>{
   if(!hex(color))return color;
   const best=roles.reduce((a,b)=>dist(color,a.color)<dist(color,b.color)?a:b);
-  if(dist(color,best.color)>100)return color; // preserve other components such as wooden handles
+  if(dist(color,best.color)>0)return color; // preserve other components such as wooden handles
   if(best.role==='highlight')return mix(material.highlight,'#FFFFFF',strength*.35);
   if(best.role==='shadow')return material.shadow;
   return mix(material.base,material.highlight,strength*.2);
