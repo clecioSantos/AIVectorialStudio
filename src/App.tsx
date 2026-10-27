@@ -7,7 +7,7 @@ import {createArtworkWithProvider,proposeArtworkEdit,applyEditProposal} from './
 import type {EditProposal} from './core/generator';
 import type {GeneratorId} from './core/generator';
 import {exportPng,exportSvg,shapeMarkup} from './core/export';
-import {componentPackage,bounds} from './core/components';
+import {componentPackage} from './core/components';
 import {parseBatchLines,recolorMaterial,defaultMaterials} from './core/assetBatch';
 import {exportAtlas} from './core/atlasExport';
 import {templatePresets,planCollection,collectionStyle,nameCollectionArt,rarityLevels} from './core/collectionTemplates';
