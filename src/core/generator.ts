@@ -10,3 +10,36 @@ if(/estrela|star|ícone|icone|icon/.test(p))return [o('Emblema','polygon',102,81
 return [o('Sombra','ellipse',121,364,276,58,dark,{opacity:.18,stroke:'none'}),o('Corpo','rect',146,149,220,215,primary),o('Topo','path',145,89,222,130,s.palette.primary[1]||primary,{d:'M 145 182 L 184 100 Q 256 58 328 100 L 367 182 Z'}),o('Ornamento','ellipse',211,190,90,90,s.palette.highlight),o('Base','rect',130,347,252,39,s.palette.secondary[0]||primary)];}
 export const localProvider:GenerationProvider={id:'local-demo',label:'Gerador vetorial local (demonstração)',async generate({prompt,style,json}){if(json){const source=typeof json==='object'&&json!==null?json:{};const list=Array.isArray(source)?source:('shapes'in source?(source as {shapes:unknown}).shapes:[]);if(!Array.isArray(list))throw new Error('JSON deve conter uma lista "shapes".');return list.map((v,i)=>{if(!v||typeof v!=='object')throw new Error(`Forma ${i} inválida`);const e=v as Record<string,unknown>;const type=e.type;if(!['rect','ellipse','path','polygon'].includes(String(type)))throw new Error(`Tipo inválido na forma ${i}`);const base=shape(String(e.name||`Forma ${i+1}`),type as VectorShape['type'],Number(e.x||0),Number(e.y||0),Number(e.width||100),Number(e.height||100),String(e.fill||style.palette.primary[0]),style);return {...base,...e,id:uid(),type:base.type} as VectorShape;});}return demoShapes(prompt,style);}};
 export async function createArtwork(name:string,prompt:string,category:string,style:StudioStyle,json?:unknown):Promise<Artwork>{const shapes=await localProvider.generate({prompt,style,category,json});return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};}
+
+/** IA remota via servidor local. A chave nunca é enviada ao navegador. */
+export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',async generate({prompt,style,category}){
+ const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,style,category})});
+ const result:unknown=await response.json();
+ if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na geração com IA');
+ if(typeof result!=='object'||result===null||!('shapes'in result)||!Array.isArray(result.shapes))throw new Error('Resposta da IA inválida');
+ const items=result.shapes as unknown[];
+ if(items.length<1||items.length>60)throw new Error('Número de camadas inválido');
+ const color=/^(#[0-9a-fA-F]{6}|none)$/;
+ const number=(v:unknown,defaultValue:number,min:number,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max?v:defaultValue;
+ return items.map((v,i):VectorShape=>{
+  if(!v||typeof v!=='object')throw new Error('Camada '+i+' inválida');
+  const s=v as Record<string,unknown>;
+  if(!['rect','ellipse','path','polygon'].includes(String(s.type)))throw new Error('Tipo de camada inválido');
+  const type=s.type as VectorShape['type'];
+  const fill=typeof s.fill==='string'&&color.test(s.fill)?s.fill:style.palette.primary[0];
+  const stroke=typeof s.stroke==='string'&&color.test(s.stroke)?s.stroke:(style.outlines.enabled?style.outlines.color:'none');
+  const d=typeof s.d==='string'&&s.d.length<=10000&&/^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+\-eE]*$/.test(s.d)?s.d:undefined;
+  const points=typeof s.points==='string'&&s.points.length<=10000&&/^[0-9.,\s+\-eE]*$/.test(s.points)?s.points:undefined;
+  if(type==='path'&&!d)throw new Error('Caminho SVG inválido na camada '+i);
+  if(type==='polygon'&&!points)throw new Error('Polígono inválido na camada '+i);
+  return {id:uid(),name:typeof s.name==='string'?s.name.slice(0,80):'Camada '+(i+1),type,
+   x:number(s.x,0,-1024,1024),y:number(s.y,0,-1024,1024),width:number(s.width,100,0,2048),height:number(s.height,100,0,2048),
+   fill,stroke,strokeWidth:number(s.strokeWidth,style.outlines.width,0,40),rotation:number(s.rotation,0,-360,360),opacity:number(s.opacity,1,0,1),
+   ...(d?{d}:{}),...(points?{points}:{})};
+ });
+}};
+export type GeneratorId='local-demo'|'openai';
+export async function createArtworkWithProvider(name:string,prompt:string,category:string,style:StudioStyle,provider:GeneratorId,json?:unknown):Promise<Artwork>{
+ const shapes=await (provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json});
+ return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};
+}
