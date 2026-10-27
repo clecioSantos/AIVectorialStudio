@@ -6,6 +6,48 @@ function aiApi(): Plugin {
   return {
     name: 'ai-vectorial-api',
     configureServer(server) {
+      server.middlewares.use('/api/edit', async (req,res)=>{
+        res.setHeader('Content-Type','application/json; charset=utf-8');
+        if(req.method!=='POST'){res.statusCode=405;res.end(JSON.stringify({error:'Método não permitido'}));return;}
+        try{
+          const provider=req.headers['x-vector-provider'];
+          if(provider!=='gemini'&&provider!=='openai')throw new Error('Selecione Gemini ou OpenAI');
+          const key=provider==='gemini'?process.env.GEMINI_API_KEY:process.env.OPENAI_API_KEY;
+          if(!key){res.statusCode=503;res.end(JSON.stringify({error:'Configure a chave da API de '+provider+' no .env.local'}));return;}
+          let body='';
+          for await(const chunk of req){body+=chunk.toString();if(body.length>150000)throw new Error('Requisição muito grande');}
+          const input=JSON.parse(body);
+          if(typeof input.instruction!=='string'||!input.instruction.trim()||input.instruction.length>3000||!Array.isArray(input.shapes)||input.shapes.length>60||input.shapes.length===0||!input.style||typeof input.style!=='object')throw new Error('Dados de edição inválidos');
+          const allowed=new Set(input.shapes.map((sh:{id:string})=>sh.id));
+          if(input.selectedId&&!allowed.has(input.selectedId))throw new Error('Camada selecionada inválida');
+          const system='Você edita ilustrações SVG estruturadas existentes. Retorne APENAS objeto JSON com "summary" (breve) e "changes" (lista de objetos {id,patch}). Cada id deve existir nas formas recebidas. Use patch somente com os campos alterados: name,x,y,width,height,rotation,opacity,fill,stroke,strokeWidth,radius,d,points,strokeLineCap,strokeLineJoin. Preserve forma, posição e estilo quando não pedidos. NÃO crie nem remova camadas. NÃO altere id ou type. Se selectedId existir, modifique EXCLUSIVAMENTE essa camada. Todas as cores em #RRGGBB ou none. Respeite integralmente o style.json.';
+          const request='Pedido: '+input.instruction+'\nCamada selecionada: '+(input.selectedId||'nenhuma')+'\nEstilo: '+JSON.stringify(input.style).slice(0,15000)+'\nCamadas atuais: '+JSON.stringify(input.shapes).slice(0,60000);
+          let output:string;
+          if(provider==='gemini'){
+            const model=process.env.GEMINI_MODEL||'gemini-3.5-flash-lite';
+            const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{
+              method:'POST',headers:{'x-goog-api-key':key,'Content-Type':'application/json'},
+              body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:request}]}],generationConfig:{responseMimeType:'application/json',temperature:0.2,maxOutputTokens:8192}})
+            });
+            const result=await response.json();
+            if(!response.ok){res.statusCode=502;res.end(JSON.stringify({error:result.error?.message||'Erro Gemini'}));return;}
+            output=result.candidates?.[0]?.content?.parts?.map((part:{text?:string})=>part.text||'').join('')||'';
+          }else{
+            const response=await fetch('https://api.openai.com/v1/chat/completions',{
+              method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+              body:JSON.stringify({model:process.env.OPENAI_MODEL||'gpt-4.1-mini',response_format:{type:'json_object'},temperature:0.2,messages:[{role:'system',content:system},{role:'user',content:request}]})
+            });
+            const result=await response.json();
+            if(!response.ok){res.statusCode=502;res.end(JSON.stringify({error:result.error?.message||'Erro OpenAI'}));return;}
+            output=result.choices?.[0]?.message?.content||'';
+          }
+          if(!output)throw new Error('IA não retornou alterações');
+          const edits=JSON.parse(output);
+          if(!Array.isArray(edits.changes)||edits.changes.length>60)throw new Error('Lista de alterações inválida');
+          for(const change of edits.changes)if(!change||!allowed.has(change.id)||(input.selectedId&&change.id!==input.selectedId)||!change.patch||typeof change.patch!=='object'||Array.isArray(change.patch))throw new Error('Edição tentou modificar camadas não autorizadas');
+          res.end(JSON.stringify({changes:edits.changes,summary:String(edits.summary||'Alteração proposta').slice(0,400)}));
+        }catch(e){res.statusCode=400;res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)}));}
+      });
       server.middlewares.use('/api/generate', async (req, res) => {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({error:'Método não permitido'})); return; }
