@@ -33,7 +33,7 @@ export function tilePreviewSvg(art:Artwork,options:TileOptions):string{
  validateTile(options);
  const {size,axis,repeats}=options;
  const cols=axis==='vertical'?1:repeats,rows=axis==='horizontal'?1:repeats;
- const body=seamlessTileSvg(art,size,axis).replace(/^<svg[^>]*>/,'').replace(/<\\/svg>$/,'');
+ const raw=seamlessTileSvg(art,size,axis);const body=raw.slice(raw.indexOf('>')+1,raw.lastIndexOf('</svg>'));
  const parts=Array.from({length:cols*rows},(_,i)=>{
   const x=i%cols*size,y=Math.floor(i/cols)*size;
   return '<svg x="'+x+'" y="'+y+'" width="'+size+'" height="'+size+'" viewBox="0 0 512 512" overflow="hidden">'+body+'</svg>';
