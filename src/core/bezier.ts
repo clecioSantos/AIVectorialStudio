@@ -1,7 +1,10 @@
+import {toEditableCubicPath} from './pathNormalization';
 /** Edição visual segura de paths SVG com M inicial e segmentos C absolutos. */
 export type BezierPoint={x:number;y:number;kind:'anchor'|'control'};
 export function parseBezier(d:string):BezierPoint[]|null{
- const tokens=d.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?/g)||[];
+ const normalized=toEditableCubicPath(d);
+ if(!normalized)return null;
+ const tokens=normalized.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?/g)||[];
  if(tokens.length<9||tokens[0]!=='M')return null;
  let i=1;const n=()=>{const v=Number(tokens[i++]);return Number.isFinite(v)?v:NaN};
  const start={x:n(),y:n(),kind:'anchor' as const};
