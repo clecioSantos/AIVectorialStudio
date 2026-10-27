@@ -16,11 +16,11 @@ export const styleSchema = z.object({
 }).strict();
 export type StudioStyle = z.infer<typeof styleSchema>;
 export type StylePatch = Record<string,unknown>;
-export type VectorShape = {id:string;type:'rect'|'ellipse'|'path'|'polygon';name:string; x:number;y:number;width:number;height:number;fill:string;stroke:string;strokeWidth:number;rotation:number;opacity:number;d?:string;points?:string;material?:string;groupId?:string;radius?:number;strokeLineCap?:'round'|'butt'|'square';strokeLineJoin?:'round'|'miter'|'bevel'};
+export type VectorShape = {id:string;type:'rect'|'ellipse'|'path'|'polygon';name:string; x:number;y:number;width:number;height:number;fill:string;stroke:string;strokeWidth:number;rotation:number;opacity:number;d?:string;points?:string;material?:string;groupId?:string;componentId?:string;componentVersion?:number;componentSourceId?:string;radius?:number;strokeLineCap?:'round'|'butt'|'square';strokeLineJoin?:'round'|'miter'|'bevel'};
 export type Artwork = {id:string;name:string;prompt:string;category:string;createdAt:string;modifiedAt:string;size:number;shapes:VectorShape[];stylePatch:StylePatch};
 export type StyleRevision = {id:string;createdAt:string;style:StudioStyle};
 export type ArtworkRevision={id:string;createdAt:string;label:string;artwork:Artwork};
-export type StudioProject = {artworkHistory?:Record<string,ArtworkRevision[]>;id:string;name:string;description:string;createdAt:string;modifiedAt:string;style:StudioStyle;styleRevisions:StyleRevision[];categoryPatches:Record<string,StylePatch>;artworks:Artwork[];components:{id:string;name:string;shapes:VectorShape[]}[];generationHistory:{id:string;prompt:string;createdAt:string;artworkId:string}[];exportSettings:{size:number;transparent:boolean}};
+export type StudioProject = {artworkHistory?:Record<string,ArtworkRevision[]>;id:string;name:string;description:string;createdAt:string;modifiedAt:string;style:StudioStyle;styleRevisions:StyleRevision[];categoryPatches:Record<string,StylePatch>;artworks:Artwork[];components:{id:string;name:string;category?:string;tags?:string[];version?:number;shapes:VectorShape[];sockets?:{name:string;x:number;y:number}[]}[];generationHistory:{id:string;prompt:string;createdAt:string;artworkId:string}[];exportSettings:{size:number;transparent:boolean}};
 export const now=()=>new Date().toISOString();
 export const uid=()=>crypto.randomUUID();
 const asObject=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?structuredClone(v as Record<string,unknown>):{};
