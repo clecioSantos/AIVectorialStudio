@@ -54,3 +54,13 @@ No painel **Editor vetorial**, selecione uma camada do tipo `path`, clique em **
 Selecione um path com comandos `M` e `C` absolutos (sem rotação) e ative **Editar nós no canvas**. Você pode adicionar nó em um segmento, remover a âncora selecionada, suavizar uma âncora interior ou fechar a curva ligando o último ponto ao primeiro. Arraste âncoras azuis e alças amarelas. Com **Espelhar alças opostas**, o movimento de uma alça mantém o alinhamento da alça complementar. **Shift + clique** permite selecionar vários nós para arrastar juntos. A opção **Encaixar nós à grade** arredonda as posições a uma grade de 8 px; **Desfazer/Refazer** mantém até 40 alterações da edição de nós na sessão atual.
 
 Limitações: caminhos com comandos `L`, `Q`, `A`, relativos ou com `Z` explícito ainda não são editáveis visualmente; fechamento adiciona segmento cúbico ligando o ponto final ao inicial. O editor não converte automaticamente paths importados, nem suporta curvas rotacionadas. Este recurso não passou por testes de navegador com dependências instaladas; valide o build com `npm install && npm run build`.
+
+## Ampliação do editor vetorial em cinco frentes
+
+1. **Caminhos SVG:** a normalização converte comandos lineares, quadráticos, cúbicos, relativos e arcos SVG em curvas cúbicas editáveis. Múltiplos subcaminhos continuam bloqueados no editor de nós, mas podem aparecer em resultados de operações booleanas.
+2. **Operações booleanas:** selecione duas camadas e use Unir, Subtrair, Interseção ou Excluir sobreposição. O resultado é uma camada vetorial `path`, e as originais são substituídas após registrar revisão.
+3. **Transformação gráfica:** selecione uma forma e ative escala/rotação no canvas. A alça de canto altera dimensões, a alça superior gira. Arrastar paths e polígonos modifica também suas coordenadas vetoriais.
+4. **Testes automáticos:** `npm run test` executa Vitest; `npm run build` compila a produção. Um workflow GitHub Actions executa ambos em pushes e PRs.
+5. **Consistência entre assets:** o gerador envia resumos limitados de até quatro artes existentes (paleta, tipos de camadas e espessuras de contorno) junto ao `style.json` para ajudar a IA a manter a identidade do projeto. O conteúdo de referência não substitui o prompt do objeto.
+
+Limitações: operações booleanas exigem duas camadas de geometria válida e não preservam separadamente os atributos das originais. O modo de edição de nós ainda não permite múltiplos subcaminhos num só editor. Resultados criados por IA continuam probabilísticos e podem precisar de edição manual.
