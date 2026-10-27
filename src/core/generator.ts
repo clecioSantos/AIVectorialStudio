@@ -56,7 +56,7 @@ export async function createArtworkWithProvider(name:string,prompt:string,catego
 }
 
 export type EditChange={id:string;patch:Partial<VectorShape>};
-export type EditProposal={artworkId:string;changes:EditChange[];summary:string};
+export type EditProposal={artworkId:string;changes:EditChange[];additions:VectorShape[];removals:string[];summary:string};
 export async function proposeArtworkEdit(art:Artwork,instruction:string,style:StudioStyle,provider:'gemini'|'openai',selectedId?:string|null):Promise<EditProposal>{
  if(!instruction.trim())throw new Error('Informe a alteração desejada');
  const response=await fetch('/api/edit',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':provider},body:JSON.stringify({instruction,style,shapes:art.shapes,selectedId:selectedId||null})});
@@ -81,11 +81,31 @@ export async function proposeArtworkEdit(art:Artwork,instruction:string,style:St
   }
   changes.push({id:item.id,patch:patch as Partial<VectorShape>});
  }
- if(!changes.length)throw new Error('A IA não sugeriu alterações');
- return {artworkId:art.id,changes,summary:typeof payload.summary==='string'?payload.summary.slice(0,400):'Alterações propostas'};
+ const data=payload as Record<string,unknown>;
+ const removeItems=Array.isArray(data.removals)?data.removals:[];
+ const addItems=Array.isArray(data.additions)?data.additions:[];
+ if(removeItems.length>25||addItems.length>25)throw new Error('Muitas camadas alteradas');
+ if(selectedId&&(removeItems.length||addItems.length))throw new Error('Seleção exclusiva não permite inserir ou remover camadas');
+ const removals=removeItems.map(x=>{if(typeof x!=='string'||!allowed.has(x))throw new Error('Remoção inválida');return x as string;});
+ if(new Set(removals).size!==removals.length)throw new Error('Remoções repetidas');
+ const additions=addItems.map((raw:unknown):VectorShape=>{
+  if(!raw||typeof raw!=='object')throw new Error('Camada adicionada inválida');
+  const a=raw as Record<string,unknown>;
+  if(!['rect','ellipse','path','polygon'].includes(String(a.type)))throw new Error('Tipo novo inválido');
+  const type=a.type as VectorShape['type'];
+  const num=(v:unknown,def:number,min:number,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max?v:def;
+  const color=(v:unknown,def:string)=>typeof v==='string'&&/^(#[0-9a-fA-F]{6}|none)$/.test(v)?v:def;
+  const d=typeof a.d==='string'&&a.d.length<8000&&/^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+\-eE]*$/.test(a.d)?a.d:undefined;
+  const points=typeof a.points==='string'&&a.points.length<8000&&/^[0-9.,\s+\-eE]*$/.test(a.points)?a.points:undefined;
+  if((type==='path'&&!d)||(type==='polygon'&&!points))throw new Error('Geometria nova inválida');
+  return {id:uid(),type,name:typeof a.name==='string'?a.name.slice(0,80):'Nova camada',x:num(a.x,0,-1024,1024),y:num(a.y,0,-1024,1024),width:num(a.width,100,0,2048),height:num(a.height,100,0,2048),fill:color(a.fill,style.palette.primary[0]),stroke:color(a.stroke,style.outlines.enabled?style.outlines.color:'none'),strokeWidth:num(a.strokeWidth,style.outlines.width,0,40),rotation:num(a.rotation,0,-360,360),opacity:num(a.opacity,1,0,1),...(d?{d}:{}),...(points?{points}:{})};
+ });
+ if(art.shapes.length-removals.length+additions.length>60)throw new Error('Máximo de 60 camadas');
+ if(!changes.length&&!additions.length&&!removals.length)throw new Error('Nenhuma alteração sugerida');
+ return {artworkId:art.id,changes,additions,removals,summary:typeof data.summary==='string'?data.summary.slice(0,400):'Alterações propostas'};
 }
 export function applyEditProposal(art:Artwork,proposal:EditProposal):Artwork{
  if(art.id!==proposal.artworkId)throw new Error('Prévia pertence a outra ilustração');
  const changes=new Map(proposal.changes.map(x=>[x.id,x.patch]));
- return {...art,modifiedAt:now(),shapes:art.shapes.map(s=>changes.has(s.id)?{...s,...changes.get(s.id)}:s)};
+ return {...art,modifiedAt:now(),shapes:[...art.shapes.filter(s=>!proposal.removals.includes(s.id)).map(s=>changes.has(s.id)?{...s,...changes.get(s.id)}:s),...proposal.additions]};
 }
