@@ -10,7 +10,7 @@ if(/machado|axe|picareta|pickaxe/.test(p))return [o('Cabo','rect',246,100,31,340
 if(/estrela|star|ícone|icone|icon/.test(p))return [o('Emblema','polygon',102,81,308,327,primary,{points:'256,81 296,189 410,192 319,262 352,376 256,309 160,376 193,262 102,192 216,189'}),o('Centro','ellipse',218,215,76,76,accent,{stroke:'none'}),...(detail>.65?[o('Brilho central','ellipse',237,234,38,38,lightColor,{stroke:'none',opacity:strength})]:[])];
 return [o('Sombra','ellipse',121,364,276,58,dark,{opacity:.08+ambient*.35,stroke:'none'}),o('Corpo','rect',146,149,220,215,primary),o('Topo','path',145,89,222,130,s.palette.primary[1]||primary,{d:'M 145 182 L 184 100 Q 256 58 328 100 L 367 182 Z'}),o('Ornamento','ellipse',211,190,90,90,accent),o('Base','rect',130,347,252,39,s.palette.secondary[0]||primary),...(detail>.65?[o('Iluminação','ellipse',238,216,40,40,lightColor,{stroke:'none',opacity:Math.min(.8,strength*.65)})]:[])];}
 export const localProvider:GenerationProvider={id:'local-demo',label:'Gerador vetorial local (demonstração)',async generate({prompt,style,json}){if(json){const source=typeof json==='object'&&json!==null?json:{};const list=Array.isArray(source)?source:('shapes'in source?(source as {shapes:unknown}).shapes:[]);if(!Array.isArray(list))throw new Error('JSON deve conter uma lista "shapes".');return list.map((v,i)=>{if(!v||typeof v!=='object')throw new Error(`Forma ${i} inválida`);const e=v as Record<string,unknown>;const type=e.type;if(!['rect','ellipse','path','polygon'].includes(String(type)))throw new Error(`Tipo inválido na forma ${i}`);const base=shape(String(e.name||`Forma ${i+1}`),type as VectorShape['type'],Number(e.x||0),Number(e.y||0),Number(e.width||100),Number(e.height||100),String(e.fill||style.palette.primary[0]),style);return {...base,...e,id:uid(),type:base.type} as VectorShape;});}return demoShapes(prompt,style);}};
-export async function createArtwork(name:string,prompt:string,category:string,style:StudioStyle,json?:unknown):Promise<Artwork>{const shapes=await localProvider.generate({prompt,style,category,json,references:summarizeReferences(existingArtworks)});return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};}
+export async function createArtwork(name:string,prompt:string,category:string,style:StudioStyle,json?:unknown):Promise<Artwork>{const shapes=await localProvider.generate({prompt,style,category,json});return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};}
 
 function validateAiShapes(payload:unknown,style:StudioStyle):VectorShape[]{
  const result=payload;
@@ -52,7 +52,7 @@ export const geminiProvider:GenerationProvider={...aiProvider,id:'gemini',label:
 }};
 export type GeneratorId='local-demo'|'openai'|'gemini';
 export async function createArtworkWithProvider(name:string,prompt:string,category:string,style:StudioStyle,provider:GeneratorId,json?:unknown,existingArtworks:Artwork[]=[]):Promise<Artwork>{
- const shapes=await (provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json});
+ const shapes=await (provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json,references:summarizeReferences(existingArtworks)});
  return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};
 }
 
