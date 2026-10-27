@@ -2,7 +2,7 @@ import {useMemo,useRef,useState} from 'react';
 import type {PointerEvent} from 'react';
 import {Box,Plus,Folder,Paintbrush,Shapes,Download,Trash2,Upload,Save,RotateCcw,Layers,Copy,Image as ImageIcon,Code,MousePointer2,Move,ZoomIn,ZoomOut,CheckCircle2,AlertCircle,History,Grid3X3} from 'lucide-react';
 import {useStudio} from './store/useStudio';
-import {Artwork,defaultStyle,now,resolvedStyle,StudioStyle,stylePresets,uid,validateStyle,VectorShape} from './core/schema';
+import {Artwork,defaultStyle,now,resolvedStyle,stylePresets,uid,validateStyle,VectorShape} from './core/schema';
 import {createArtworkWithProvider,proposeArtworkEdit,applyEditProposal} from './core/generator';
 import type {EditProposal} from './core/generator';
 import type {GeneratorId} from './core/generator';
