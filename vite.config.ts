@@ -122,7 +122,7 @@ function aiApi(): Plugin {
           const input = JSON.parse(body);
           if (typeof input.prompt !== 'string' || input.prompt.trim().length < 3 || input.prompt.length > 3000 || !input.style || typeof input.style !== 'object') throw new Error('Prompt ou estilo inválido');
           const images: string[]=Array.isArray(input.referenceImages)?input.referenceImages:[];
-          if(images.length>3||images.some((v:unknown)=>typeof v!=='string'||v.length>700000||!/^data:image\\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v)))throw new Error('Referência inválida; envie até 3 imagens PNG, JPEG ou WebP');
+          if(images.length>3||images.some((v:unknown)=>typeof v!=='string'||v.length>700000||!['data:image/png;base64,','data:image/jpeg;base64,','data:image/webp;base64,'].some(prefix=>v.startsWith(prefix))))throw new Error('Referência inválida; envie até 3 imagens PNG, JPEG ou WebP');
           const advanced=input.advanced===true;
           const system = [
             'Você cria ilustrações vetoriais SVG a partir de formas editáveis. Retorne SOMENTE JSON válido com chave shapes.',
@@ -145,7 +145,7 @@ function aiApi(): Plugin {
               headers:{'x-goog-api-key':key,'Content-Type':'application/json'},
               body:JSON.stringify({
                 systemInstruction:{parts:[{text:system}]},
-                contents:[{role:'user',parts:[{text:userText},...images.map((uri:string)=>{const [,mime,data]=/^data:(image\\/(?:png|jpeg|webp));base64,(.+)$/.exec(uri)!;return {inlineData:{mimeType:mime,data}};})]}],
+                contents:[{role:'user',parts:[{text:userText},...images.map((uri:string)=>{const [header,data]=uri.split(',');const mime=header.slice(5).replace(';base64','');return {inlineData:{mimeType:mime,data}};})]}],
                 generationConfig:{responseMimeType:'application/json',temperature:0.45,maxOutputTokens:8192}
               })
             });
