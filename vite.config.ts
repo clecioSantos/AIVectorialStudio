@@ -125,11 +125,15 @@ function aiApi(): Plugin {
           if (typeof input.prompt !== 'string' || input.prompt.trim().length < 3 || input.prompt.length > 3000 || !input.style || typeof input.style !== 'object') throw new Error('Prompt ou estilo inválido');
           const images: string[]=Array.isArray(input.referenceImages)?input.referenceImages:[];
           if(images.length>3||images.some((v:unknown)=>typeof v!=='string'||v.length>700000||!['data:image/png;base64,','data:image/jpeg;base64,','data:image/webp;base64,'].some(prefix=>v.startsWith(prefix))))throw new Error('Referência inválida; envie até 3 imagens PNG, JPEG ou WebP');
+          const detailLimit=Math.max(1,Math.min(60,Number(input.detailLimit)||60));
+          const phase=Number(input.phase)||0;
+          const existingShapes=Array.isArray(input.existingShapes)?input.existingShapes.slice(0,1000):[];
           const advanced=input.advanced===true;
           const system = [
             'Você cria ilustrações vetoriais SVG a partir de formas editáveis. Retorne SOMENTE JSON válido com chave shapes.',
             'Cada shape é um objeto com: name (string), type (rect, ellipse, path ou polygon), x,y,width,height (números), fill e stroke (cores hex ou none), strokeWidth (número), rotation (número), opacity (0 a 1).',
-            'Para path inclua d SVG; para polygon inclua points SVG. Coordenadas na área 512x512. Máximo de 60 formas.',
+            'Para path inclua d SVG; para polygon inclua points SVG. Coordenadas na área 512x512. Gere NO MÁXIMO '+detailLimit+' formas nesta etapa.',
+            ...(phase>0?['Esta é a etapa '+phase+' de detalhamento incremental. NÃO redesenhe a estrutura existente: gere exclusivamente NOVAS formas complementares (texturas de madeira, tijolos, juntas, profundidade, detalhes de acessórios) mantendo a composição original. O JSON shapes deve conter SOMENTE as novas formas. Não repita nenhum elemento já presente. Camadas existentes (resumo): '+JSON.stringify(existingShapes.map((x:{name:string;type:string;x:number;y:number;width:number;height:number})=>({name:x.name,type:x.type,x:x.x,y:x.y,width:x.width,height:x.height}))).slice(0,15000)]:[]),
             'Nunca inclua scripts, imagens externas, foreignObject, SVG bruto ou conteúdo HTML.',
             'Respeite o estilo fornecido, as regras de perspectiva, paleta, contorno e materiais. Fundo transparente, sem retângulo de fundo.',
             'O estilo define como desenhar, e o prompt define o objeto. Não acrescente objetos não solicitados.',
@@ -167,7 +171,7 @@ function aiApi(): Plugin {
             if (typeof content !== 'string') throw new Error('Resposta vazia da OpenAI');
             shapes = JSON.parse(content).shapes;
           }
-          if (!Array.isArray(shapes) || shapes.length < 1 || shapes.length > 60) throw new Error('IA retornou lista de formas inválida');
+          if (!Array.isArray(shapes) || shapes.length < 1 || shapes.length > detailLimit) throw new Error('IA retornou lista de formas inválida');
           res.end(JSON.stringify({shapes}));
         } catch(e) { res.statusCode = 400; res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)})); }
       });
