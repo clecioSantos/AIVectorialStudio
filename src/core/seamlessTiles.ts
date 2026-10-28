@@ -19,6 +19,17 @@ export function tileIssues(shapes:VectorShape[],size=512,axis:TileAxis='horizont
  }
  return warnings;
 }
+/** Samples opposing RGBA edges after rasterization. It measures actual seam mismatch;
+ * callers decide whether a texture is acceptable at their desired threshold.
+ */
+export function pixelSeamReport(data:Uint8ClampedArray,width:number,height:number):{horizontal:number;vertical:number}{
+ if(width<2||height<2||data.length!==width*height*4)throw new Error('Imagem RGBA inválida');
+ let h=0,v=0;
+ const delta=(a:number,b:number)=>{let total=0;for(let c=0;c<4;c++)total+=Math.abs(data[a+c]-data[b+c]);return total/4;};
+ for(let y=0;y<height;y++)h+=delta((y*width)*4,(y*width+width-1)*4);
+ for(let x=0;x<width;x++)v+=delta(x*4,((height-1)*width+x)*4);
+ return {horizontal:Number((h/height).toFixed(2)),vertical:Number((v/width).toFixed(2))};
+}
 export function seamlessTileSvg(art:Artwork,size:number,axis:TileAxis='both'):string{
  validateTile({size,axis,repeats:2});
  const xs=axis==='vertical'?[0]:[-512,0,512],ys=axis==='horizontal'?[0]:[-512,0,512];
