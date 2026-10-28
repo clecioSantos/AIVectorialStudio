@@ -144,6 +144,7 @@ function aiApi(): Plugin {
           const system = [
             'Você cria ilustrações vetoriais SVG a partir de formas editáveis. Retorne SOMENTE JSON válido com chave shapes.',
             'Cada shape é um objeto com: name (string), type (rect, ellipse, path ou polygon), x,y,width,height (números), fill e stroke (cores hex ou none), strokeWidth (número), rotation (número), opacity (0 a 1).',
+            'Para type path o campo d é obrigatório: sequência SVG válida começando por M ou m, com comandos e coordenadas numéricas completos (exemplo: M 20 20 L 60 20 L 60 60 Z). Nunca emita path sem d, d vazio, palavras ou SVG bruto. Para polygon, points deve conter pares de coordenadas numéricas separados por espaços.',
             'Para path inclua d SVG; para polygon inclua points SVG. Coordenadas na área 512x512. Gere NO MÁXIMO '+detailLimit+' formas nesta etapa.',
             ...(phase>0?['Esta é a etapa '+phase+' de detalhamento incremental. NÃO redesenhe a estrutura existente: gere exclusivamente NOVAS formas complementares (texturas de madeira, tijolos, juntas, profundidade, detalhes de acessórios) mantendo a composição original. O JSON shapes deve conter SOMENTE as novas formas. Não repita nenhum elemento já presente. Camadas existentes (resumo): '+JSON.stringify(existingShapes.map((x:{name:string;type:string;x:number;y:number;width:number;height:number})=>({name:x.name,type:x.type,x:x.x,y:x.y,width:x.width,height:x.height}))).slice(0,15000)]:[]),
             'Nunca inclua scripts, imagens externas, foreignObject, SVG bruto ou conteúdo HTML.',
