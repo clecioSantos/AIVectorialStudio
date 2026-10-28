@@ -2,6 +2,18 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
 
+function parseModelJson(raw:string,context:string):Record<string,unknown>{
+ const cleaned=raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i,'').replace(/\s*\x60\x60\x60$/,'').trim();
+ try{
+  const value=JSON.parse(cleaned);
+  if(value&&typeof value==='object'&&!Array.isArray(value))return value;
+ }catch{
+  const start=cleaned.indexOf('{'),end=cleaned.lastIndexOf('}');
+  if(start>=0&&end>start){try{const value=JSON.parse(cleaned.slice(start,end+1));if(value&&typeof value==='object'&&!Array.isArray(value))return value;}catch{}}
+ }
+ throw new Error(context+': a IA devolveu JSON incompleto ou malformado. Reduza o detalhamento por tentativa ou gere novamente.');
+}
+
 function aiApi(): Plugin {
   return {
     name: 'ai-vectorial-api',
@@ -53,7 +65,7 @@ function aiApi(): Plugin {
             output=result.choices?.[0]?.message?.content||'';
           }
           if(!output)throw new Error('IA não retornou alterações');
-          const edits=JSON.parse(output);
+          const edits=parseModelJson(output,'Edição');
           if(!edits||typeof edits!=='object')throw new Error('Resposta de edição inválida');
           if(!Array.isArray(edits.changes)||edits.changes.length>60)throw new Error('Lista de alterações inválida');
           const validChanges=[];
@@ -105,7 +117,7 @@ function aiApi(): Plugin {
             if(!response.ok)throw new Error(value.error?.message||'Falha na revisão OpenAI');
             output=value.choices?.[0]?.message?.content||'';
           }
-          const review=JSON.parse(output);
+          const review=parseModelJson(output,'Avaliação');
           if(typeof review.score!=='number'||!Number.isFinite(review.score))throw new Error('Nota inválida da revisão');
           res.end(JSON.stringify({score:Math.max(0,Math.min(100,review.score)),issues:Array.isArray(review.issues)?review.issues.filter((x:unknown)=>typeof x==='string').slice(0,5):[]}));
         }catch(e){res.statusCode=400;res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)}));}
@@ -159,7 +171,7 @@ function aiApi(): Plugin {
             if (!response.ok) { res.statusCode = 502; res.end(JSON.stringify({error:result.error?.message || 'Falha na API Gemini'})); return; }
             const content = result.candidates?.[0]?.content?.parts?.map((p:{text?:string})=>p.text||'').join('');
             if (!content) throw new Error('Gemini não retornou formas vetoriais; tente um prompt mais simples');
-            shapes = JSON.parse(content).shapes;
+            shapes = parseModelJson(content,'Geração').shapes;
           } else {
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
               method:'POST', headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
