@@ -14,3 +14,15 @@
 .ai-edit-review-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap}
 .ai-edit-review-actions button{min-width:140px}
 @media(max-width:700px){.ai-edit-review-comparison{grid-template-columns:1fr}}
+
+/* Creation is a dedicated full-width workspace, rather than a narrow sidebar panel. */
+.studio-layout.creation-mode{display:block}
+.studio-layout.creation-mode>.editor-column,.studio-layout.creation-mode>.right-stack{display:none}
+.studio-layout.creation-mode>.left-stack{display:block;max-width:100%}
+.studio-layout.creation-mode .asset-list{display:none!important}
+.studio-layout.creation-mode .prompt-panel{display:block!important;width:100%;max-width:none;padding:clamp(24px,4vw,52px)}
+.studio-layout.creation-mode .prompt-panel .prompt-input{min-height:180px}
+.studio-layout.creation-mode .prompt-panel .json-input{min-height:260px}
+.studio-layout.creation-mode .prompt-panel .generate{margin-top:18px;min-height:46px}
+.provider-picker{display:flex;align-items:center;gap:9px;color:#a7b8cf;font-size:12px;white-space:nowrap}
+.provider-picker select{min-width:138px;border-radius:7px;border:1px solid #40516a;background:#202c3e;color:#eff4ff;padding:8px}
