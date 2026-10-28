@@ -1,3 +1,4 @@
+import {renderReviewPng} from './artReview';
 import {Artwork,StudioStyle,VectorShape,now,uid} from './schema';
 import {summarizeReferences} from './consistency';
 const shape=(name:string,type:VectorShape['type'],x:number,y:number,width:number,height:number,fill:string,style:StudioStyle,extra:Partial<VectorShape>={}):VectorShape=>({id:uid(),name,type,x,y,width,height,fill,stroke:style.outlines.enabled?style.outlines.color:'none',strokeWidth:style.outlines.width*(1+(style.outlines.variation||0)*.15),rotation:0,opacity:1,radius:Math.round(((style.outlines.roundness||0)+(1-(style.geometry.edgeSharpness??.5))*.3)*10),strokeLineCap:style.outlines.lineCap||style.outlines.cap||'round',strokeLineJoin:style.outlines.lineJoin||'round',...extra});
@@ -60,7 +61,8 @@ export type EditChange={id:string;patch:Partial<VectorShape>};
 export type EditProposal={artworkId:string;changes:EditChange[];additions:VectorShape[];removals:string[];summary:string};
 export async function proposeArtworkEdit(art:Artwork,instruction:string,style:StudioStyle,provider:'gemini'|'openai',selectedId?:string|null):Promise<EditProposal>{
  if(!instruction.trim())throw new Error('Informe a alteração desejada');
- const response=await fetch('/api/edit',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':provider},body:JSON.stringify({instruction,style,shapes:art.shapes,selectedId:selectedId||null})});
+ const render=await renderReviewPng(art);
+ const response=await fetch('/api/edit',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':provider},body:JSON.stringify({instruction,style,shapes:art.shapes,selectedId:selectedId||null,render})});
  const payload:unknown=await response.json();
  if(!response.ok)throw new Error(typeof payload==='object'&&payload!==null&&'error' in payload?String(payload.error):'Falha ao editar arte');
  if(!payload||typeof payload!=='object'||!('changes' in payload)||!Array.isArray(payload.changes))throw new Error('Resposta de edição inválida');
