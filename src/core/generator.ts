@@ -2,7 +2,7 @@ import {renderReviewPng} from './artReview';
 import {Artwork,StudioStyle,VectorShape,now,uid} from './schema';
 import {summarizeReferences} from './consistency';
 const shape=(name:string,type:VectorShape['type'],x:number,y:number,width:number,height:number,fill:string,style:StudioStyle,extra:Partial<VectorShape>={}):VectorShape=>({id:uid(),name,type,x,y,width,height,fill,stroke:style.outlines.enabled?style.outlines.color:'none',strokeWidth:style.outlines.width*(1+(style.outlines.variation||0)*.15),rotation:0,opacity:1,radius:Math.round(((style.outlines.roundness||0)+(1-(style.geometry.edgeSharpness??.5))*.3)*10),strokeLineCap:style.outlines.lineCap||style.outlines.cap||'round',strokeLineJoin:style.outlines.lineJoin||'round',...extra});
-export interface GenerationProvider {id:string;label:string;generate(input:{prompt:string;style:StudioStyle;category:string;json?:unknown;references?:ReturnType<typeof summarizeReferences>;referenceImages?:string[];advanced?:boolean}):Promise<VectorShape[]>}
+export interface GenerationProvider {id:string;label:string;generate(input:{prompt:string;style:StudioStyle;category:string;json?:unknown;references?:ReturnType<typeof summarizeReferences>;referenceImages?:string[];advanced?:boolean;detailLimit?:number;existingShapes?:VectorShape[];phase?:number}):Promise<VectorShape[]>}
 function demoShapes(prompt:string,s:StudioStyle):VectorShape[]{const p=prompt.toLowerCase();const metal=s.materials.iron||s.materials.metal||Object.values(s.materials)[0];const wood=s.materials.wood||Object.values(s.materials)[0];const gold=s.materials.gold||Object.values(s.materials)[0];const primary=s.palette.primary[0];const dark=s.palette.shadow;const accent=s.palette.accent?.[0]||s.palette.highlight;const detail=(s.geometry.detailDensity??s.geometry.detailComplexity??s.artDirection.detailLevel);const strength=s.lighting.highlightIntensity??s.lighting.intensity;const ambient=s.lighting.ambientOcclusion??.3;const lit=s.palette.lighting;const lightColor=Array.isArray(lit)?(lit[0]||s.palette.highlight):(lit||s.palette.highlight);const reflect=(m:typeof metal)=>m.reflectivity??m.metallic??.25;const o=(n:string,t:VectorShape['type'],x:number,y:number,w:number,h:number,f:string,e:Partial<VectorShape>={})=>shape(n,t,x,y,w,h,f,s,e);
 if(/espada|sword|lâmina|blade/.test(p))return [o('Sombra da lâmina','polygon',217,65,78,260,metal.shadow,{points:'256,65 274,111 264,320 245,320 238,111'}),o('Lâmina','polygon',224,61,64,255,metal.base,{points:'256,61 281,108 264,314 248,314 231,108'}),o('Brilho','polygon',247,76,26,226,lightColor,{points:'256,76 261,112 260,296 250,304 251,108',stroke:'none',opacity:Math.min(1,.35+strength*.55+reflect(metal)*.2)}),o('Guarda','rect',180,306,152,24,gold.base,{rotation:0}),o('Cabo','rect',243,326,26,113,wood.base),o('Detalhe do cabo','rect',250,335,12,94,wood.highlight,{stroke:'none'}),o('Pomo','ellipse',238,426,37,37,gold.highlight),...(detail>.58?[o('Guarda ornamental','rect',206,313,100,6,accent,{stroke:'none'})]:[])];
 if(/escudo|shield/.test(p))return [o('Sombra escudo','polygon',116,80,280,340,dark,{points:'256,80 395,126 373,306 256,420 139,306 116,126'}),o('Escudo principal','polygon',130,89,252,316,wood.base,{points:'256,89 381,136 361,297 256,405 151,297 130,136'}),o('Revestimento','polygon',151,111,210,264,primary,{points:'256,111 361,151 343,286 256,375 169,286 151,151'}),o('Faixa vertical','rect',242,111,28,263,gold.base),o('Emblema','ellipse',212,213,88,88,gold.highlight)];
@@ -39,8 +39,8 @@ function validateAiShapes(payload:unknown,style:StudioStyle):VectorShape[]{
 }
 
 /** IA remota via servidor local. A chave nunca é enviada ao navegador. */
-export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',async generate({prompt,style,category,references,referenceImages,advanced}){
- const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':'openai'},body:JSON.stringify({prompt,style,category,references,referenceImages,advanced})});
+export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',async generate({prompt,style,category,references,referenceImages,advanced,detailLimit,existingShapes,phase}){
+ const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':'openai'},body:JSON.stringify({prompt,style,category,references,referenceImages,advanced,detailLimit,existingShapes,phase})});
  const result:unknown=await response.json();
  if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na geração com IA');
  return validateAiShapes(result,style);
@@ -52,8 +52,18 @@ export const geminiProvider:GenerationProvider={...aiProvider,id:'gemini',label:
  return validateAiShapes(result,input.style);
 }};
 export type GeneratorId='local-demo'|'openai'|'gemini';
-export async function createArtworkWithProvider(name:string,prompt:string,category:string,style:StudioStyle,provider:GeneratorId,json?:unknown,existingArtworks:Artwork[]=[],referenceImages:string[]=[],advanced=false):Promise<Artwork>{
- const shapes=await (provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider).generate({prompt,style,category,json,references:summarizeReferences(existingArtworks),referenceImages,advanced});
+export async function createArtworkWithProvider(name:string,prompt:string,category:string,style:StudioStyle,provider:GeneratorId,json?:unknown,existingArtworks:Artwork[]=[],referenceImages:string[]=[],advanced=false,detailLimit=60):Promise<Artwork>{
+ const engine=provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider;
+ const target=Math.max(1,Math.min(1000,Math.round(detailLimit)));
+ const shapes=await engine.generate({prompt,style,category,json,references:summarizeReferences(existingArtworks),referenceImages,advanced,detailLimit:Math.min(60,target),phase:0});
+ if(provider!=='local-demo'&&target>shapes.length){
+  const rounds=Math.ceil((target-shapes.length)/50);
+  for(let phase=1;phase<=rounds&&shapes.length<target;phase++){
+   const additional=await engine.generate({prompt,style,category,references:summarizeReferences(existingArtworks),referenceImages:[],advanced:true,detailLimit:Math.min(50,target-shapes.length),existingShapes:shapes,phase});
+   if(!additional.length)break;
+   shapes.push(...additional.slice(0,target-shapes.length));
+  }
+ }
  return {id:uid(),name,prompt,category,createdAt:now(),modifiedAt:now(),size:style.export.defaultSize,shapes,stylePatch:{}};
 }
 
