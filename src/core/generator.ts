@@ -39,27 +39,30 @@ function validateAiShapes(payload:unknown,style:StudioStyle):VectorShape[]{
 }
 
 /** IA remota via servidor local. A chave nunca é enviada ao navegador. */
-export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',async generate({prompt,style,category,references,referenceImages,advanced,detailLimit,existingShapes,phase}){
- const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':'openai'},body:JSON.stringify({prompt,style,category,references,referenceImages,advanced,detailLimit,existingShapes,phase})});
- const result:unknown=await response.json();
- if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na geração com IA');
- return validateAiShapes(result,style);
-}};
-export const geminiProvider:GenerationProvider={...aiProvider,id:'gemini',label:'Google Gemini (SVG editável)',async generate(input){
- const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':'gemini'},body:JSON.stringify(input)});
- const result:unknown=await response.json();
- if(!response.ok)throw new Error(typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na API Gemini');
- return validateAiShapes(result,input.style);
-}};
+async function generateRemoteShapes(provider:'openai'|'gemini',input:Parameters<GenerationProvider['generate']>[0]):Promise<VectorShape[]>{
+ for(let attempt=0;attempt<2;attempt++){
+  const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-vector-provider':provider},body:JSON.stringify(input)});
+  const result:unknown=await response.json();
+  if(!response.ok){
+   const message=typeof result==='object'&&result!==null&&'error'in result?String(result.error):'Falha na geração com IA';
+   if(attempt===0&&message.includes('JSON incompleto ou malformado'))continue;
+   throw new Error(message);
+  }
+  return validateAiShapes(result,input.style);
+ }
+ throw new Error('A IA não conseguiu gerar JSON válido após duas tentativas');
+}
+export const aiProvider:GenerationProvider={id:'openai',label:'OpenAI (SVG editável)',generate:input=>generateRemoteShapes('openai',input)};
+export const geminiProvider:GenerationProvider={id:'gemini',label:'Google Gemini (SVG editável)',generate:input=>generateRemoteShapes('gemini',input)};
 export type GeneratorId='local-demo'|'openai'|'gemini';
 export async function createArtworkWithProvider(name:string,prompt:string,category:string,style:StudioStyle,provider:GeneratorId,json?:unknown,existingArtworks:Artwork[]=[],referenceImages:string[]=[],advanced=false,detailLimit=60):Promise<Artwork>{
  const engine=provider==='gemini'?geminiProvider:provider==='openai'?aiProvider:localProvider;
  const target=Math.max(1,Math.min(1000,Math.round(detailLimit)));
- const shapes=await engine.generate({prompt,style,category,json,references:summarizeReferences(existingArtworks),referenceImages,advanced,detailLimit:Math.min(60,target),phase:0});
+ const shapes=await engine.generate({prompt,style,category,json,references:summarizeReferences(existingArtworks),referenceImages,advanced,detailLimit:Math.min(30,target),phase:0});
  if(provider!=='local-demo'&&target>shapes.length){
-  const rounds=Math.ceil((target-shapes.length)/50);
+  const rounds=Math.ceil((target-shapes.length)/30);
   for(let phase=1;phase<=rounds&&shapes.length<target;phase++){
-   const additional=await engine.generate({prompt,style,category,references:summarizeReferences(existingArtworks),referenceImages:[],advanced:true,detailLimit:Math.min(50,target-shapes.length),existingShapes:shapes,phase});
+   const additional=await engine.generate({prompt,style,category,references:summarizeReferences(existingArtworks),referenceImages:[],advanced:true,detailLimit:Math.min(30,target-shapes.length),existingShapes:shapes,phase});
    if(!additional.length)break;
    shapes.push(...additional.slice(0,target-shapes.length));
   }
