@@ -7,7 +7,7 @@ const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&
 export function parseBatchJson(text:string,defaults:{provider:GeneratorId;category:string;advanced:boolean;detailLimit:number}):BatchConfig{
  let input:unknown;try{input=JSON.parse(text)}catch(e){throw new Error('JSON inválido: '+(e instanceof Error?e.message:String(e)))}
  if(!record(input)||input.schemaVersion!=='1.0'||!Array.isArray(input.assets))throw new Error('Esperado objeto com schemaVersion "1.0" e array assets');
- if(input.assets.length<1||input.assets.length>100)throw new Error('Inclua entre 1 e 100 assets por lote');
+ if(input.assets.length<1)throw new Error('Inclua pelo menos 1 asset por lote');
  const options=record(input.defaults)?input.defaults:{};
  const choose=(a:Record<string,unknown>,k:string)=>a[k]===undefined?options[k]:a[k];
  const assets=input.assets.map((v:unknown,i:number):BatchAsset=>{
