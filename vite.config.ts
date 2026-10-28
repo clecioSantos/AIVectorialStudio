@@ -53,20 +53,26 @@ function aiApi(): Plugin {
           }
           if(!output)throw new Error('IA não retornou alterações');
           const edits=JSON.parse(output);
+          if(!edits||typeof edits!=='object')throw new Error('Resposta de edição inválida');
           if(!Array.isArray(edits.changes)||edits.changes.length>60)throw new Error('Lista de alterações inválida');
           const validChanges=[];
+          const patchFields=new Set(['name','x','y','width','height','rotation','opacity','fill','stroke','strokeWidth','radius','d','points','strokeLineCap','strokeLineJoin']);
           for(const change of edits.changes){
-            const resolved=resolveEditId(change?.id);
-            if(!change||!change.patch||typeof change.patch!=='object'||Array.isArray(change.patch))throw new Error('Formato de edição inválido');
+            if(!change||typeof change!=='object'||Array.isArray(change))continue;
+            const resolved=resolveEditId(change.id??change.shapeId??change.layerId);
             if(input.selectedId&&resolved!==input.selectedId)throw new Error('A IA tentou editar uma camada fora da seleção');
             if(!resolved)continue;
-            validChanges.push({...change,id:resolved});
+            const rawPatch=change.patch??change.changes??change.properties??change.updates??change;
+            if(!rawPatch||typeof rawPatch!=='object'||Array.isArray(rawPatch))continue;
+            const patch=Object.fromEntries(Object.entries(rawPatch).filter(([key])=>patchFields.has(key)));
+            if(!Object.keys(patch).length)continue;
+            validChanges.push({id:resolved,patch});
           }
           const removals=Array.isArray(edits.removals)?edits.removals.map((id:unknown)=>resolveEditId(id)):[];
           if(input.selectedId&&removals.some((id:string|null)=>id!==input.selectedId))throw new Error('Remoção de camada não autorizada');
           const validRemovals=removals.filter((id:string|null):id is string=>!!id);
           const additions=Array.isArray(edits.additions)?edits.additions:[];
-          if(!validChanges.length&&!validRemovals.length&&!additions.length)throw new Error('A IA não retornou alterações aplicáveis. Tente reformular o pedido.');
+          if(!validChanges.length&&!validRemovals.length&&!additions.length)throw new Error('A IA não retornou mudanças compatíveis. Peça uma alteração específica ou tente novamente.');
           res.end(JSON.stringify({changes:validChanges,additions,removals:validRemovals,summary:String(edits.summary||'Alteração proposta').slice(0,400)}));
         }catch(e){res.statusCode=400;res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)}));}
       });
