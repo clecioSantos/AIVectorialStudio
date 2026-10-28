@@ -20,7 +20,7 @@ export type VectorShape = {id:string;type:'rect'|'ellipse'|'path'|'polygon';name
 export type Artwork = {id:string;name:string;prompt:string;category:string;createdAt:string;modifiedAt:string;size:number;shapes:VectorShape[];stylePatch:StylePatch};
 export type StyleRevision = {id:string;createdAt:string;style:StudioStyle};
 export type ArtworkRevision={id:string;createdAt:string;label:string;artwork:Artwork};
-export type StudioProject = {artworkHistory?:Record<string,ArtworkRevision[]>;id:string;name:string;description:string;createdAt:string;modifiedAt:string;style:StudioStyle;styleRevisions:StyleRevision[];categoryPatches:Record<string,StylePatch>;artworks:Artwork[];components:{id:string;name:string;category?:string;tags?:string[];version?:number;shapes:VectorShape[];sockets?:{name:string;x:number;y:number}[]}[];generationHistory:{id:string;prompt:string;createdAt:string;artworkId:string}[];exportSettings:{size:number;transparent:boolean}};
+export type StudioProject = {artworkHistory?:Record<string,ArtworkRevision[]>;id:string;name:string;description:string;createdAt:string;modifiedAt:string;style:StudioStyle;styleRevisions:StyleRevision[];categoryPatches:Record<string,StylePatch>;artworks:Artwork[];components:{id:string;name:string;category?:string;tags?:string[];version?:number;shapes:VectorShape[];sockets?:{name:string;x:number;y:number}[]}[];generationHistory:{id:string;prompt:string;createdAt:string;artworkId:string;kind?:'creation'|'edit';provider?:string}[];exportSettings:{size:number;transparent:boolean}};
 export const now=()=>new Date().toISOString();
 export const uid=()=>crypto.randomUUID();
 const asObject=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?structuredClone(v as Record<string,unknown>):{};
