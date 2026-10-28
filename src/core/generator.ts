@@ -27,7 +27,8 @@ function validateAiShapes(payload:unknown,style:StudioStyle):VectorShape[]{
   const type=s.type as VectorShape['type'];
   const fill=typeof s.fill==='string'&&color.test(s.fill)?s.fill:style.palette.primary[0];
   const stroke=typeof s.stroke==='string'&&color.test(s.stroke)?s.stroke:(style.outlines.enabled?style.outlines.color:'none');
-  const d=typeof s.d==='string'&&s.d.length<=10000&&/^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+\-eE]*$/.test(s.d)?s.d:undefined;
+  const rawPath=typeof s.d==='string'?s.d.trim():'';
+  const d=rawPath.length<=10000&&/^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+\-eE]*$/.test(rawPath)&&/^[Mm]/.test(rawPath)?rawPath:undefined;
   const points=typeof s.points==='string'&&s.points.length<=10000&&/^[0-9.,\s+\-eE]*$/.test(s.points)?s.points:undefined;
   if(type==='path'&&!d)throw new Error('Caminho SVG inválido na camada '+i);
   if(type==='polygon'&&!points)throw new Error('Polígono inválido na camada '+i);
@@ -48,7 +49,12 @@ async function generateRemoteShapes(provider:'openai'|'gemini',input:Parameters<
    if(attempt===0&&message.includes('JSON incompleto ou malformado'))continue;
    throw new Error(message);
   }
-  return validateAiShapes(result,input.style);
+  try{return validateAiShapes(result,input.style);}
+  catch(error){
+   const message=error instanceof Error?error.message:String(error);
+   if(attempt===0&&(/Caminho SVG inválido|Polígono inválido|Tipo de camada inválido|Número de camadas inválido/.test(message)))continue;
+   throw new Error('A IA retornou geometria vetorial inválida após '+(attempt+1)+' tentativa(s): '+message);
+  }
  }
  throw new Error('A IA não conseguiu gerar JSON válido após duas tentativas');
 }
