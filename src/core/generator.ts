@@ -122,7 +122,7 @@ export async function proposeArtworkEdit(art:Artwork,instruction:string,style:St
   if((type==='path'&&!d)||(type==='polygon'&&!points))throw new Error('Geometria nova inválida');
   return {id:uid(),type,name:typeof a.name==='string'?a.name.slice(0,80):'Nova camada',x:num(a.x,0,-1024,1024),y:num(a.y,0,-1024,1024),width:num(a.width,100,0,2048),height:num(a.height,100,0,2048),fill:color(a.fill,style.palette.primary[0]),stroke:color(a.stroke,style.outlines.enabled?style.outlines.color:'none'),strokeWidth:num(a.strokeWidth,style.outlines.width,0,40),rotation:num(a.rotation,0,-360,360),opacity:num(a.opacity,1,0,1),...(d?{d}:{}),...(points?{points}:{})};
  });
- if(art.shapes.length-removals.length+additions.length>60)throw new Error('Máximo de 60 camadas');
+ if(art.shapes.length-removals.length+additions.length>1000)throw new Error('Máximo de 1000 camadas');
  if(!changes.length&&!additions.length&&!removals.length)throw new Error('Nenhuma alteração sugerida');
  return {artworkId:art.id,changes,additions,removals,summary:typeof data.summary==='string'?data.summary.slice(0,400):'Alterações propostas'};
 }
