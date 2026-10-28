@@ -25,12 +25,13 @@ function aiApi(): Plugin {
             const value=String(raw).trim();
             if(allowed.has(value))return value;
             const index=/^\\d+$/.test(value)?Number(value):-1;
-            if(index>=0&&index<input.shapes.length)return input.shapes[index].id;
-            const byName=input.shapes.filter((sh:{name?:string})=>sh.name===value);
+            if(index>=1&&index<=input.shapes.length)return input.shapes[index-1].id;
+            const normalized=value.toLocaleLowerCase('pt-BR');
+            const byName=input.shapes.filter((sh:{name?:string})=>sh.name?.trim().toLocaleLowerCase('pt-BR')===normalized);
             return byName.length===1?byName[0].id:null;
           };
-          const system='Você edita ilustrações SVG estruturadas existentes. Retorne APENAS objeto JSON com "summary" (breve) e "changes" (lista de objetos {id,patch}). Cada id deve existir nas formas recebidas. Use patch somente com os campos alterados: name,x,y,width,height,rotation,opacity,fill,stroke,strokeWidth,radius,d,points,strokeLineCap,strokeLineJoin. Preserve forma, posição e estilo quando não pedidos. NÃO crie nem remova camadas. NÃO altere id ou type. Se selectedId existir, modifique EXCLUSIVAMENTE essa camada. Todas as cores em #RRGGBB ou none. Respeite integralmente o style.json.';
-          const request='Permite adicionar formas em additions e remover IDs em removals; use changes para patches. Retorne arrays vazios quando não houver operação. Máximo 25 adições, 25 remoções e 60 formas no total. Se selectedId informado, não inclua additions/removals. Pedido: '+input.instruction+'\nCamada selecionada: '+(input.selectedId||'nenhuma')+'\nEstilo: '+JSON.stringify(input.style).slice(0,15000)+'\nCamadas atuais: '+JSON.stringify(input.shapes).slice(0,60000);
+          const system='Você edita ilustrações SVG estruturadas existentes. Retorne APENAS objeto JSON com "summary" (breve) e "changes" (lista de objetos {id,patch}). Copie o campo id EXATAMENTE de uma camada recebida, sem criar IDs, nomes no lugar de IDs ou índices. Sem selectedId, você pode editar qualquer camada existente e adicionar novas camadas. Use patch somente com os campos alterados: name,x,y,width,height,rotation,opacity,fill,stroke,strokeWidth,radius,d,points,strokeLineCap,strokeLineJoin. Preserve forma, posição e estilo quando não pedidos. NÃO crie nem remova camadas. NÃO altere id ou type. Se selectedId existir, modifique EXCLUSIVAMENTE essa camada. Todas as cores em #RRGGBB ou none. Respeite integralmente o style.json.';
+          const request='Permite adicionar formas em additions e remover IDs em removals; use changes para patches. Retorne arrays vazios quando não houver operação. Máximo 25 adições, 25 remoções e 60 formas no total. Se selectedId informado, não inclua additions/removals. Pedido: '+input.instruction+'\nCamada selecionada: '+(input.selectedId||'nenhuma')+'\nEstilo: '+JSON.stringify(input.style).slice(0,15000)+'\nCamadas atuais, com IDs exatos: '+JSON.stringify(input.shapes.map((shape:{id:string;name:string},index:number)=>({numero:index+1,...shape}))).slice(0,60000);
           let output:string;
           if(provider==='gemini'){
             const model=process.env.GEMINI_MODEL||'gemini-3.5-flash-lite';
@@ -53,10 +54,20 @@ function aiApi(): Plugin {
           if(!output)throw new Error('IA não retornou alterações');
           const edits=JSON.parse(output);
           if(!Array.isArray(edits.changes)||edits.changes.length>60)throw new Error('Lista de alterações inválida');
-          for(const change of edits.changes){const resolved=resolveEditId(change?.id);if(!resolved||(input.selectedId&&resolved!==input.selectedId)||!change.patch||typeof change.patch!=='object'||Array.isArray(change.patch))throw new Error('A IA indicou uma camada desconhecida ou fora da seleção. Refaça a edição escolhendo a camada correta.');change.id=resolved;}
+          const validChanges=[];
+          for(const change of edits.changes){
+            const resolved=resolveEditId(change?.id);
+            if(!change||!change.patch||typeof change.patch!=='object'||Array.isArray(change.patch))throw new Error('Formato de edição inválido');
+            if(input.selectedId&&resolved!==input.selectedId)throw new Error('A IA tentou editar uma camada fora da seleção');
+            if(!resolved)continue;
+            validChanges.push({...change,id:resolved});
+          }
           const removals=Array.isArray(edits.removals)?edits.removals.map((id:unknown)=>resolveEditId(id)):[];
-          if(removals.some((id:string|null)=>!id||(input.selectedId&&id!==input.selectedId)))throw new Error('Remoção de camada não autorizada');
-          res.end(JSON.stringify({changes:edits.changes,additions:Array.isArray(edits.additions)?edits.additions:[],removals,summary:String(edits.summary||'Alteração proposta').slice(0,400)}));
+          if(input.selectedId&&removals.some((id:string|null)=>id!==input.selectedId))throw new Error('Remoção de camada não autorizada');
+          const validRemovals=removals.filter((id:string|null):id is string=>!!id);
+          const additions=Array.isArray(edits.additions)?edits.additions:[];
+          if(!validChanges.length&&!validRemovals.length&&!additions.length)throw new Error('A IA não retornou alterações aplicáveis. Tente reformular o pedido.');
+          res.end(JSON.stringify({changes:validChanges,additions,removals:validRemovals,summary:String(edits.summary||'Alteração proposta').slice(0,400)}));
         }catch(e){res.statusCode=400;res.end(JSON.stringify({error:e instanceof Error?e.message:String(e)}));}
       });
       server.middlewares.use('/api/generate', async (req, res) => {
