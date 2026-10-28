@@ -86,9 +86,9 @@ function aiApi(): Plugin {
           const key=provider==='openai'?process.env.OPENAI_API_KEY:process.env.GEMINI_API_KEY;
           if(!key)throw new Error('Chave da IA não configurada');
           let body='';
-          for await(const chunk of req){body+=chunk.toString();if(body.length>500000)throw new Error('Avaliação muito grande');}
+          for await(const chunk of req){body+=chunk.toString();if(body.length>1700000)throw new Error('Avaliação muito grande');}
           const input=JSON.parse(body);
-          if(typeof input.prompt!=='string'||!Array.isArray(input.shapes)||!input.shapes.length||input.shapes.length>60||!input.style)throw new Error('Dados para avaliação inválidos');
+          if(typeof input.prompt!=='string'||!Array.isArray(input.shapes)||!input.shapes.length||input.shapes.length>1000||!input.style)throw new Error('Dados para avaliação inválidos');
           const render=typeof input.render==='string'&&input.render.startsWith('data:image/png;base64,')&&input.render.length<400000?input.render:null;
           const system='Você é um revisor exigente e independente de assets vetoriais 2D para jogos. Responda apenas JSON: {"score": número de 0 a 100, "issues": lista de até 5 críticas curtas em português}. Avalie fidelidade ao pedido, coerência de proporções e composição, perspectiva, paleta, contornos, quantidade de detalhes e se os elementos SVG realmente representam o objeto. Não aprove formas genéricas só por serem válidas. Se uma imagem PNG for fornecida, inspecione visualmente anatomia, silhueta, rosto, proporções, legibilidade e sobreposições. Se não houver PNG, avalie somente dados vetoriais e não alegue ter visto pixels. Valores acima de 80 exigem forte aderência.';
           const request=JSON.stringify({prompt:input.prompt,category:input.category,style:input.style,shapes:input.shapes}).slice(0,65000);
